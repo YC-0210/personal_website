@@ -1,5 +1,6 @@
 "use client";
 
+import { OwnerAffordance } from "@/components/owner-affordance";
 import { SphereScene } from "@/components/sphere-scene";
 import { useSphere } from "@/sphere/use-sphere";
 
@@ -24,6 +25,7 @@ export default function Home() {
     <main className="fixed inset-0 overflow-hidden">
       <h1 className="sr-only">Knowledge Sphere</h1>
       <SphereScene />
+      <OwnerAffordance />
       {/*
         A placeholder for the text fallback of every Atom and Connection, which
         the mobile & accessibility ticket builds out properly.

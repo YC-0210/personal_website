@@ -63,6 +63,9 @@ describe("SphereStore", () => {
         connections: [],
         selectedAtomId: null,
         error: null,
+        owner: null,
+        isEditMode: false,
+        authError: null,
       });
     });
 
@@ -93,6 +96,9 @@ describe("SphereStore", () => {
         connections: [],
         selectedAtomId: null,
         error: null,
+        owner: null,
+        isEditMode: false,
+        authError: null,
       });
     });
 
