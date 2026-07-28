@@ -2,10 +2,16 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as THREE from "three";
+
+import { useSphere } from "@/sphere/use-sphere";
 
 /** `canvas` from DESIGN.md — the near-black the whole site sits on. */
 const CANVAS_COLOR = "#010102";
+
+/** `ink` from DESIGN.md. Atoms stay in the grayscale; lavender is for selection. */
+const ATOM_COLOR = "#f7f8f8";
 
 /** Radius the Atoms will eventually be placed on. */
 const SPHERE_RADIUS = 1;
@@ -27,6 +33,48 @@ function SphereShell() {
       <sphereGeometry args={[SPHERE_RADIUS, 32, 32]} />
       <meshBasicMaterial />
     </mesh>
+  );
+}
+
+/**
+ * One node per Atom, at the size and position the store derived from Rank.
+ *
+ * Geometry and material are shared across every node and the nodes are scaled
+ * rather than re-tessellated, so the draw cost stays flat as the Sphere grows
+ * toward the ~50-Atom target.
+ */
+function AtomNodes() {
+  const { atoms, layout } = useSphere();
+
+  const geometry = useMemo(() => new THREE.SphereGeometry(1, 16, 16), []);
+  const material = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: ATOM_COLOR }),
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [geometry, material]);
+
+  return (
+    <>
+      {atoms.map((atom) => {
+        const placement = layout[atom.id];
+        if (!placement) return null;
+        return (
+          <mesh
+            key={atom.id}
+            geometry={geometry}
+            material={material}
+            position={placement.position as unknown as THREE.Vector3Tuple}
+            scale={placement.size}
+          />
+        );
+      })}
+    </>
   );
 }
 
@@ -64,12 +112,13 @@ export function SphereScene() {
   return (
     <Canvas
       aria-hidden="true"
-      camera={{ position: [0, 0, 3.2], fov: 50 }}
+      camera={{ position: [0, 0, 2.4], fov: 50 }}
       dpr={[1, 2]}
       gl={{ antialias: true }}
     >
       <color attach="background" args={[CANVAS_COLOR]} />
       <SphereShell />
+      <AtomNodes />
       <OrbitControls
         autoRotate={isIdle}
         autoRotateSpeed={AUTO_ROTATE_SPEED}

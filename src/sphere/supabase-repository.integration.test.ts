@@ -10,15 +10,35 @@ const client = createClient(
 );
 
 describe("SupabaseSphereRepository against the real project", () => {
-  it("loads an empty Sphere through the store", async () => {
+  it("loads the Sphere through the store and lays every Atom out", async () => {
     const store = createSphereStore(new SupabaseSphereRepository(client));
 
     await store.load();
 
-    expect(store.getState().error).toBeNull();
-    expect(store.getState().status).toBe("ready");
-    expect(store.getState().atoms).toEqual([]);
-    expect(store.getState().connections).toEqual([]);
+    const { status, error, atoms, connections, layout } = store.getState();
+    expect(error).toBeNull();
+    expect(status).toBe("ready");
+    expect(atoms.length).toBeGreaterThan(0);
+    expect(connections.length).toBeGreaterThan(0);
+
+    for (const atom of atoms) {
+      const placement = layout[atom.id];
+      expect(placement, `no layout for ${atom.label}`).toBeDefined();
+      expect(Math.hypot(...placement.position)).toBeCloseTo(
+        placement.orbitRadius,
+        6,
+      );
+      expect(Number.isFinite(placement.size)).toBe(true);
+    }
+
+    // Rank is relative, so the most-invested Atom should be the biggest.
+    const biggest = [...atoms].sort(
+      (a, b) => layout[b.id].size - layout[a.id].size,
+    )[0];
+    const mostHours = [...atoms].sort(
+      (a, b) => b.hoursSpent - a.hoursSpent,
+    )[0];
+    expect(biggest.id).toBe(mostHours.id);
   });
 
   it("rejects an unauthenticated write to atoms", async () => {
