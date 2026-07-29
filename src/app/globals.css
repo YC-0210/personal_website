@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/*
+  Design tokens from DESIGN.md (Linear, extracted via getdesign.md). DESIGN.md is
+  the source of truth — these are its values transcribed into Tailwind's theme so
+  they're reachable as bg-canvas, bg-surface-1, text-ink-subtle, border-hairline,
+  rounded-md, and so on.
+
+  Linear's display/text/mono families are proprietary; DESIGN.md names Inter at
+  500/600/700 as the closest free substitute, which is what this site uses.
+*/
+@theme {
+  /* Accent — scarce by rule: brand mark, primary CTA, focus ring, link emphasis. */
+  --color-primary: #5e6ad2;
+  --color-on-primary: #ffffff;
+  --color-primary-hover: #828fff;
+  --color-primary-focus: #5e69d1;
+
+  /* Text ramp */
+  --color-ink: #f7f8f8;
+  --color-ink-muted: #d0d6e0;
+  --color-ink-subtle: #8a8f98;
+  --color-ink-tertiary: #62666d;
+
+  /* Canvas and the four-step surface ladder. Don't skip levels. */
+  --color-canvas: #010102;
+  --color-surface-1: #0f1011;
+  --color-surface-2: #141516;
+  --color-surface-3: #18191a;
+  --color-surface-4: #191a1b;
+
+  /* Hairline borders carry depth instead of shadows. */
+  --color-hairline: #23252a;
+  --color-hairline-strong: #34343a;
+  --color-hairline-tertiary: #3e3e44;
+
+  --color-semantic-success: #27a644;
+
+  /* Radii — buttons/inputs at md, cards at lg. Never pill-round a CTA. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+
+  /* 4px base unit. */
+  --spacing: 4px;
+
+  --font-sans: var(--font-inter), "SF Pro Display", -apple-system, system-ui,
+    "Segoe UI", Roboto, sans-serif;
+}
+
+html,
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* The Sphere owns the whole viewport; nothing should rubber-band behind it. */
+body {
+  overscroll-behavior: none;
+}
+
+/* DESIGN.md elevation level 4: 2px primary-focus outline at 50% opacity. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary-focus) 50%, transparent);
+  outline-offset: 2px;
+}
