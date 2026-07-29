@@ -15,5 +15,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.integration.test.ts"],
+    // Real network round-trips, so the default 5s is too tight.
+    testTimeout: 30_000,
   },
 });

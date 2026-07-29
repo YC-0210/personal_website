@@ -9,6 +9,8 @@ import {
   type AuthProvider,
   type OwnerSession,
 } from "./auth";
+import { layoutSphere, type AtomLayout } from "./layout";
+import { rankAtoms } from "./rank";
 import type { SphereRepository } from "./repository";
 
 export type SphereStatus = "idle" | "loading" | "ready" | "error";
@@ -17,6 +19,8 @@ export interface SphereState {
   status: SphereStatus;
   atoms: Atom[];
   connections: Connection[];
+  /** Derived Rank and position per Atom, recomputed whenever the data changes. */
+  layout: Record<AtomId, AtomLayout>;
   selectedAtomId: AtomId | null;
   /** Message from the last failed load, cleared when a load succeeds. */
   error: string | null;
@@ -37,6 +41,7 @@ const EMPTY_STATE: SphereState = {
   status: "idle",
   atoms: [],
   connections: [],
+  layout: {},
   selectedAtomId: null,
   error: null,
   owner: null,
@@ -95,6 +100,7 @@ export class SphereStore {
         status: "ready",
         atoms,
         connections,
+        layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
         selectedAtomId: selectionSurvives ? this.state.selectedAtomId : null,
         error: null,
       });
