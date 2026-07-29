@@ -61,6 +61,7 @@ describe("SphereStore", () => {
         status: "idle",
         atoms: [],
         connections: [],
+        layout: {},
         selectedAtomId: null,
         error: null,
       });
@@ -91,6 +92,7 @@ describe("SphereStore", () => {
         status: "ready",
         atoms: [],
         connections: [],
+        layout: {},
         selectedAtomId: null,
         error: null,
       });

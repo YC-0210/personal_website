@@ -17,6 +17,7 @@ const SERVER_SNAPSHOT: SphereState = {
   status: "idle",
   atoms: [],
   connections: [],
+  layout: {},
   selectedAtomId: null,
   error: null,
 };
