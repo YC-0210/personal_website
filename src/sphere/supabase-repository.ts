@@ -1,8 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getSupabaseClient } from "@/lib/supabase-client";
-import type { Atom, Connection, SphereSnapshot } from "./domain";
+import type {
+  Atom,
+  AtomDraft,
+  AtomId,
+  Connection,
+  SphereSnapshot,
+} from "./domain";
 import type { SphereRepository } from "./repository";
+
+const ATOM_COLUMNS = "id, label, description, hours_spent";
 
 interface AtomRow {
   id: string;
@@ -25,6 +33,14 @@ function toAtom(row: AtomRow): Atom {
     label: row.label,
     description: row.description,
     hoursSpent: Number(row.hours_spent),
+  };
+}
+
+function fromAtomDraft(draft: AtomDraft) {
+  return {
+    label: draft.label,
+    description: draft.description,
+    hours_spent: draft.hoursSpent,
   };
 }
 
@@ -62,7 +78,7 @@ export class SupabaseSphereRepository implements SphereRepository {
     const [atomsResult, connectionsResult] = await Promise.all([
       client
         .from("atoms")
-        .select("id, label, description, hours_spent")
+        .select(ATOM_COLUMNS)
         .order("created_at", { ascending: true }),
       client
         .from("connections")
@@ -85,5 +101,38 @@ export class SupabaseSphereRepository implements SphereRepository {
         toConnection,
       ),
     };
+  }
+
+  async createAtom(draft: AtomDraft): Promise<Atom> {
+    const { data, error } = await this.resolveClient()
+      .from("atoms")
+      .insert(fromAtomDraft(draft))
+      .select(ATOM_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`Could not add the Atom: ${error.message}`);
+    return toAtom(data as AtomRow);
+  }
+
+  async updateAtom(atomId: AtomId, draft: AtomDraft): Promise<Atom> {
+    const { data, error } = await this.resolveClient()
+      .from("atoms")
+      .update(fromAtomDraft(draft))
+      .eq("id", atomId)
+      .select(ATOM_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`Could not save the Atom: ${error.message}`);
+    return toAtom(data as AtomRow);
+  }
+
+  /** The Connection cascade is the schema's `on delete cascade`, not a second call. */
+  async deleteAtom(atomId: AtomId): Promise<void> {
+    const { error } = await this.resolveClient()
+      .from("atoms")
+      .delete()
+      .eq("id", atomId);
+
+    if (error) throw new Error(`Could not delete the Atom: ${error.message}`);
   }
 }

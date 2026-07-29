@@ -68,6 +68,7 @@ describe("SphereStore", () => {
         owner: null,
         isEditMode: false,
         authError: null,
+        writeError: null,
       });
     });
 
@@ -103,6 +104,7 @@ describe("SphereStore", () => {
         owner: null,
         isEditMode: false,
         authError: null,
+        writeError: null,
       });
     });
 

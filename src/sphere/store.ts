@@ -1,6 +1,7 @@
 import {
   connectionTouchesAtom,
   type Atom,
+  type AtomDraft,
   type AtomId,
   type Connection,
 } from "./domain";
@@ -36,6 +37,11 @@ export interface SphereState {
   isEditMode: boolean;
   /** Message from the last failed sign-in, cleared on the next attempt. */
   authError: string | null;
+  /**
+   * Message from the last failed Owner write. Kept apart from `error` so a
+   * refused save reports itself in the form without taking the Sphere down.
+   */
+  writeError: string | null;
 }
 
 export type SphereListener = (state: SphereState) => void;
@@ -51,6 +57,7 @@ const EMPTY_STATE: SphereState = {
   owner: null,
   isEditMode: false,
   authError: null,
+  writeError: null,
 };
 
 /**
@@ -96,23 +103,7 @@ export class SphereStore {
 
     try {
       const { atoms, connections } = await this.repository.loadSnapshot();
-      const selectionSurvives =
-        this.state.selectedAtomId !== null &&
-        atoms.some((atom) => atom.id === this.state.selectedAtomId);
-
-      this.setState({
-        status: "ready",
-        atoms,
-        connections,
-        layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
-        selectedAtomId: selectionSurvives ? this.state.selectedAtomId : null,
-        emphasis: deriveEmphasis(
-          atoms,
-          connections,
-          selectionSurvives ? this.state.selectedAtomId : null,
-        ),
-        error: null,
-      });
+      this.applySphere(atoms, connections, { status: "ready", error: null });
     } catch (cause) {
       this.setState({
         status: "error",
@@ -160,6 +151,45 @@ export class SphereStore {
   }
 
   /**
+   * Create an Atom. It reaches Supabase first and only then the Sphere, so what
+   * the Owner sees is what was actually saved — including the id assigned to it.
+   */
+  async addAtom(draft: AtomDraft): Promise<void> {
+    await this.write(async () => {
+      const atom = await this.repository.createAtom(draft);
+      this.applySphere([...this.state.atoms, atom], this.state.connections);
+    });
+  }
+
+  /** Rewrite an existing Atom. Rank and layout follow the new hours at once. */
+  async editAtom(atomId: AtomId, draft: AtomDraft): Promise<void> {
+    await this.write(async () => {
+      const saved = await this.repository.updateAtom(atomId, draft);
+      this.applySphere(
+        this.state.atoms.map((atom) => (atom.id === atomId ? saved : atom)),
+        this.state.connections,
+      );
+    });
+  }
+
+  /**
+   * Remove an Atom and every Connection that touched it. The cascade is the
+   * database's, and it is mirrored here so the Sphere doesn't briefly draw a
+   * Connection to an Atom that has already gone.
+   */
+  async deleteAtom(atomId: AtomId): Promise<void> {
+    await this.write(async () => {
+      await this.repository.deleteAtom(atomId);
+      this.applySphere(
+        this.state.atoms.filter((atom) => atom.id !== atomId),
+        this.state.connections.filter(
+          (connection) => !connectionTouchesAtom(connection, atomId),
+        ),
+      );
+    });
+  }
+
+  /**
    * Sign the Owner in. On success the page gains Edit Mode; on failure the
    * store stays exactly as it was, with the reason in `authError`.
    */
@@ -202,6 +232,65 @@ export class SphereStore {
     }
 
     return unsubscribe;
+  }
+
+  /**
+   * The common shape of every Owner write: refuse it outright unless Edit Mode
+   * is on, and record why it failed if it did.
+   *
+   * Supabase's RLS policies are what actually keep a visitor out; the Edit Mode
+   * check is the near side of that same rule, so a write that could only ever be
+   * refused is never sent and a bug in the UI can't quietly attempt one.
+   *
+   * The rejection is re-thrown as well as recorded, so a caller that wants to
+   * keep a form open on failure can await it, and one that only renders state
+   * can read `writeError`.
+   */
+  private async write(operation: () => Promise<void>): Promise<void> {
+    if (!this.state.isEditMode) {
+      const refusal = new Error("Edit Mode is required to change the Sphere.");
+      this.setState({ writeError: refusal.message });
+      throw refusal;
+    }
+
+    try {
+      this.setState({ writeError: null });
+      await operation();
+    } catch (cause) {
+      this.setState({
+        writeError: cause instanceof Error ? cause.message : String(cause),
+      });
+      throw cause;
+    }
+  }
+
+  /**
+   * Put a new set of Atoms and Connections in play and re-derive everything that
+   * hangs off them — Rank, layout and emphasis — in one state change.
+   *
+   * Every path that changes the data goes through here, so an Owner write and a
+   * reload leave the Sphere in exactly the same shape. The selection survives as
+   * long as its Atom does.
+   */
+  private applySphere(
+    atoms: Atom[],
+    connections: Connection[],
+    patch: Partial<SphereState> = {},
+  ): void {
+    const selectedAtomId = atoms.some(
+      (atom) => atom.id === this.state.selectedAtomId,
+    )
+      ? this.state.selectedAtomId
+      : null;
+
+    this.setState({
+      atoms,
+      connections,
+      layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
+      selectedAtomId,
+      emphasis: deriveEmphasis(atoms, connections, selectedAtomId),
+      ...patch,
+    });
   }
 
   private setState(patch: Partial<SphereState>): void {

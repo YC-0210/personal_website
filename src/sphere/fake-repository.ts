@@ -1,4 +1,11 @@
-import type { Atom, Connection, SphereSnapshot } from "./domain";
+import { connectionTouchesAtom } from "./domain";
+import type {
+  Atom,
+  AtomDraft,
+  AtomId,
+  Connection,
+  SphereSnapshot,
+} from "./domain";
 import type { SphereRepository } from "./repository";
 
 export interface FakeSphereRepositoryOptions {
@@ -14,6 +21,7 @@ export class FakeSphereRepository implements SphereRepository {
   private atoms: Atom[];
   private connections: Connection[];
   private failure: Error | null = null;
+  private nextId = 1;
 
   /** How many times `loadSnapshot` has been called. */
   loadCount = 0;
@@ -30,6 +38,34 @@ export class FakeSphereRepository implements SphereRepository {
       atoms: this.atoms.map((atom) => ({ ...atom })),
       connections: this.connections.map((connection) => ({ ...connection })),
     };
+  }
+
+  async createAtom(draft: AtomDraft): Promise<Atom> {
+    if (this.failure) throw this.failure;
+    const atom: Atom = { ...draft, id: `generated-atom-${this.nextId++}` };
+    this.atoms.push(atom);
+    return { ...atom };
+  }
+
+  async updateAtom(atomId: AtomId, draft: AtomDraft): Promise<Atom> {
+    if (this.failure) throw this.failure;
+    const index = this.atoms.findIndex((atom) => atom.id === atomId);
+    if (index === -1) throw new Error(`No Atom with id ${atomId}`);
+
+    this.atoms[index] = { ...draft, id: atomId };
+    return { ...this.atoms[index] };
+  }
+
+  /**
+   * Mirrors the `on delete cascade` on `connections.from_atom_id` /
+   * `to_atom_id`: dropping an Atom drops the Connections that touched it.
+   */
+  async deleteAtom(atomId: AtomId): Promise<void> {
+    if (this.failure) throw this.failure;
+    this.atoms = this.atoms.filter((atom) => atom.id !== atomId);
+    this.connections = this.connections.filter(
+      (connection) => !connectionTouchesAtom(connection, atomId),
+    );
   }
 
   /** Replace the stored data, as if something changed behind the store's back. */

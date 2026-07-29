@@ -1,4 +1,4 @@
-import type { SphereSnapshot } from "./domain";
+import type { Atom, AtomDraft, AtomId, SphereSnapshot } from "./domain";
 
 /**
  * Persistence seam for the Sphere store.
@@ -7,10 +7,23 @@ import type { SphereSnapshot } from "./domain";
  * store's tests running against an in-memory fake, and keeps Supabase details
  * (column naming, error shapes) out of the domain.
  *
- * Only reads exist at the walking-skeleton stage; Owner writes arrive with the
- * Atom and Connection CRUD tickets.
+ * Writes return the saved record rather than nothing, so the store can fold the
+ * id the store of record assigned straight into its state instead of reloading
+ * the whole Sphere to find out what it was.
  */
 export interface SphereRepository {
   /** Load every Atom and Connection. */
   loadSnapshot(): Promise<SphereSnapshot>;
+
+  /** Persist a new Atom and return it with its assigned id. */
+  createAtom(draft: AtomDraft): Promise<Atom>;
+
+  /** Overwrite an existing Atom and return it as saved. */
+  updateAtom(atomId: AtomId, draft: AtomDraft): Promise<Atom>;
+
+  /**
+   * Remove an Atom. Connections at either end of it go with it — a Connection
+   * to an Atom that no longer exists is not a thing the Sphere can hold.
+   */
+  deleteAtom(atomId: AtomId): Promise<void>;
 }

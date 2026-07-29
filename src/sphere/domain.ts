@@ -30,6 +30,12 @@ export interface Connection {
   description: string;
 }
 
+/**
+ * What the Owner supplies when creating or editing an Atom. The id, and the
+ * timestamps around it, belong to the store of record rather than the form.
+ */
+export type AtomDraft = Omit<Atom, "id">;
+
 /** A snapshot of everything the Sphere persists. */
 export interface SphereSnapshot {
   atoms: Atom[];
