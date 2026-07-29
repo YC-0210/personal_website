@@ -127,8 +127,12 @@ export function ConnectionEditor() {
         </ul>
       )}
 
+      {/*
+        Once both ends are picked the form takes over, so the prompt goes away
+        rather than sitting under the dialog still asking for a second Atom.
+      */}
       <div className="fixed right-4 bottom-16 flex items-center gap-2 text-sm">
-        {pendingConnection ? (
+        {isPairPicked ? null : pendingConnection ? (
           <div className="border-hairline bg-surface-1 flex items-center gap-3 rounded-md border px-3 py-1.5">
             <span className="text-ink-subtle text-xs">
               {pendingConnection.fromAtomId === null
