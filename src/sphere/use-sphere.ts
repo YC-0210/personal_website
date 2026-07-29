@@ -23,6 +23,7 @@ const SERVER_SNAPSHOT: SphereState = {
   connections: [],
   layout: {},
   selectedAtomId: null,
+  cameraFocusAtomId: null,
   emphasis: { atoms: {}, connections: {} },
   error: null,
   owner: null,

@@ -3,6 +3,7 @@ import {
   type Atom,
   type AtomId,
   type Connection,
+  type ConnectionId,
 } from "./domain";
 import {
   UnconfiguredAuthProvider,
@@ -11,6 +12,7 @@ import {
 } from "./auth";
 import { deriveEmphasis, type SphereEmphasis } from "./emphasis";
 import { layoutSphere, type AtomLayout } from "./layout";
+import { outlineSphere, type AtomOutline } from "./outline";
 import { rankAtoms } from "./rank";
 import type { SphereRepository } from "./repository";
 
@@ -23,6 +25,13 @@ export interface SphereState {
   /** Derived Rank and position per Atom, recomputed whenever the data changes. */
   layout: Record<AtomId, AtomLayout>;
   selectedAtomId: AtomId | null;
+  /**
+   * The Atom the camera has been asked to travel to. Set when the visitor
+   * navigates *by relationship* — following a Connection moves them somewhere
+   * they may not be looking, so the view has to follow. Selecting an Atom they
+   * already clicked in the field leaves this alone.
+   */
+  cameraFocusAtomId: AtomId | null;
   /** How each Atom and Connection should read, given the current selection. */
   emphasis: SphereEmphasis;
   /** Message from the last failed load, cleared when a load succeeds. */
@@ -46,6 +55,7 @@ const EMPTY_STATE: SphereState = {
   connections: [],
   layout: {},
   selectedAtomId: null,
+  cameraFocusAtomId: null,
   emphasis: { atoms: {}, connections: {} },
   error: null,
   owner: null,
@@ -106,6 +116,12 @@ export class SphereStore {
         connections,
         layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
         selectedAtomId: selectionSurvives ? this.state.selectedAtomId : null,
+        // A camera sent somewhere that no longer exists has nowhere to be.
+        cameraFocusAtomId:
+          this.state.cameraFocusAtomId !== null &&
+          atoms.some((atom) => atom.id === this.state.cameraFocusAtomId)
+            ? this.state.cameraFocusAtomId
+            : null,
         emphasis: deriveEmphasis(
           atoms,
           connections,
@@ -135,11 +151,34 @@ export class SphereStore {
     });
   }
 
+  /**
+   * Travel along a Connection from the selected Atom to the one at its far end,
+   * and select that. This is how a visitor navigates by relationship rather
+   * than by hunting for the next Atom in the field.
+   */
+  followConnection(connectionId: ConnectionId): void {
+    const connection = this.state.connections.find(
+      (candidate) => candidate.id === connectionId,
+    );
+    const from = this.state.selectedAtomId;
+    if (!connection || from === null) return;
+    // Only the Connections currently lit are followable; a Connection the
+    // selection does not touch has no far end to travel to from here.
+    if (!connectionTouchesAtom(connection, from)) return;
+    const far =
+      connection.fromAtomId === from
+        ? connection.toAtomId
+        : connection.fromAtomId;
+    this.selectAtom(far);
+    this.setState({ cameraFocusAtomId: far });
+  }
+
   /** Return to the default free-orbiting view. */
   clearSelection(): void {
     if (this.state.selectedAtomId === null) return;
     this.setState({
       selectedAtomId: null,
+      cameraFocusAtomId: null,
       emphasis: deriveEmphasis(this.state.atoms, this.state.connections),
     });
   }
@@ -150,6 +189,14 @@ export class SphereStore {
 
   hasAtom(atomId: AtomId): boolean {
     return this.state.atoms.some((atom) => atom.id === atomId);
+  }
+
+  /**
+   * The whole Sphere as text, for the fallback view. Derived on demand rather
+   * than kept in state — nothing about it can drift from `atoms` that way.
+   */
+  outline(): AtomOutline[] {
+    return outlineSphere(this.state.atoms, this.state.connections);
   }
 
   /** Every Connection with `atomId` at either end. */
