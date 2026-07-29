@@ -1,11 +1,15 @@
 "use client";
 
 import { OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
+import { fitDistance } from "@/sphere/camera-framing";
 import type { AtomId, ConnectionId } from "@/sphere/domain";
+import type { ScreenAtom } from "@/sphere/panel-placement";
+import { publishScreenProjection } from "@/sphere/screen-projection";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
 /** `canvas` from DESIGN.md — the near-black the whole site sits on. */
@@ -26,6 +30,25 @@ const SIGNAL_COLOR = new THREE.Color("#828fff");
 
 /** Radius the Atoms will eventually be placed on. */
 const SPHERE_RADIUS = 1;
+
+/** Vertical field of view, matching the camera below. */
+const FOV = 50;
+
+/** The Sphere's widest orbit plus a little air, for the framing calculation. */
+const FRAMED_EXTENT = 1.15;
+
+/** How close and how far the visitor may push the camera. */
+const MIN_DISTANCE = 1.6;
+const MAX_DISTANCE = 6;
+
+/** How long the camera takes to travel to an Atom reached by Connection. */
+const FLIGHT_MS = 900;
+
+/**
+ * World radius of a lit Connection's invisible click target. Generous enough
+ * to catch a thumb, small enough not to swallow clicks meant for an Atom.
+ */
+const CONNECTION_HIT_RADIUS = 0.035;
 
 /** Degrees per second of idle drift. Slow enough to read as "alive", not "spinning". */
 const AUTO_ROTATE_SPEED = 0.35;
@@ -498,6 +521,245 @@ function SignalTicks() {
 }
 
 /**
+ * Publish where every Atom lands on screen, so the DOM overlay can stand its
+ * detail column clear of them. Written every frame into a plain box rather
+ * than React state — nothing should re-render because the Sphere turned.
+ */
+function ProjectionPublisher() {
+  const { atoms, layout, emphasis } = useSphere();
+  const projected = useRef<THREE.Vector3>(new THREE.Vector3());
+
+  useFrame((state) => {
+    const { camera, size } = state;
+    const screen: ScreenAtom[] = [];
+
+    for (const atom of atoms) {
+      const placement = layout[atom.id];
+      if (!placement) continue;
+
+      projected.current.set(...placement.position);
+      const distance = camera.position.distanceTo(projected.current);
+      projected.current.project(camera);
+
+      // Behind the camera; not on screen at all.
+      if (projected.current.z > 1) continue;
+
+      const isDimmed = emphasis.atoms[atom.id] === "dimmed";
+      const worldRadius = placement.size * (isDimmed ? DIM_SCALE : 1);
+      // Match the drawn glow, which is what actually competes with the type.
+      const pixelsPerUnit =
+        size.height / (2 * Math.tan((FOV * Math.PI) / 360) * distance);
+
+      screen.push({
+        id: atom.id,
+        x: ((projected.current.x + 1) / 2) * size.width,
+        y: ((1 - projected.current.y) / 2) * size.height,
+        radius: Math.max(worldRadius * 4.5 * pixelsPerUnit, 6),
+        weight: isDimmed ? 0 : 1,
+      });
+    }
+
+    publishScreenProjection(screen, size.width, size.height);
+  });
+
+  return null;
+}
+
+/**
+ * Invisible click targets along the lit Connections.
+ *
+ * A WebGL line is one pixel wide and effectively unhittable, especially with a
+ * thumb, so each highlighted Connection gets a cylinder standing in for it.
+ * Only the lit ones are built — the rest are not navigable anyway.
+ */
+function ConnectionHitTargets() {
+  const ends = useConnectionEnds();
+  const store = getSphereStore();
+
+  const geometry = useMemo(
+    () => new THREE.CylinderGeometry(1, 1, 1, 6, 1, true),
+    [],
+  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  const setCursor = useCallback((cursor: string) => {
+    document.body.style.cursor = cursor;
+  }, []);
+  useEffect(() => () => setCursor(""), [setCursor]);
+
+  const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+
+  return (
+    <>
+      {ends
+        .filter((connection) => connection.isHighlighted)
+        .map((connection) => {
+          const span = new THREE.Vector3().subVectors(
+            connection.end,
+            connection.start,
+          );
+          const length = span.length();
+          if (length < 1e-4) return null;
+
+          const midpoint = new THREE.Vector3()
+            .addVectors(connection.start, connection.end)
+            .multiplyScalar(0.5);
+          const quaternion = new THREE.Quaternion().setFromUnitVectors(
+            up,
+            span.clone().normalize(),
+          );
+
+          return (
+            <mesh
+              key={connection.id}
+              geometry={geometry}
+              position={midpoint}
+              quaternion={quaternion}
+              scale={[CONNECTION_HIT_RADIUS, length, CONNECTION_HIT_RADIUS]}
+              onClick={(event) => {
+                event.stopPropagation();
+                store.followConnection(connection.id);
+              }}
+              onPointerOver={() => setCursor("pointer")}
+              onPointerOut={() => setCursor("")}
+            >
+              {/*
+                Not `visible={false}`: three.js skips invisible objects when
+                raycasting, which would make these unhittable — exactly what
+                they exist for. Drawn as nothing instead.
+              */}
+              <meshBasicMaterial
+                transparent
+                opacity={0}
+                depthWrite={false}
+                colorWrite={false}
+              />
+            </mesh>
+          );
+        })}
+    </>
+  );
+}
+
+/**
+ * Frames the Sphere, and flies to an Atom the visitor reached by following a
+ * Connection.
+ *
+ * The flight holds the camera's distance and swings it around the Sphere until
+ * the new Atom arrives front and centre, so the detail column stays where the
+ * eye already is and the world turns underneath it.
+ */
+function CameraDirector({
+  controls,
+}: {
+  controls: React.RefObject<OrbitControlsImpl | null>;
+}) {
+  const { cameraFocusAtomId, layout } = useSphere();
+  const { camera, size } = useThree();
+
+  /** The distance we last framed to; if untouched, we may re-frame on resize. */
+  const framedAt = useRef<number | null>(null);
+  const flight = useRef<{
+    start: number;
+    from: THREE.Spherical;
+    to: THREE.Spherical;
+    fromTarget: THREE.Vector3;
+  } | null>(null);
+
+  const reducedMotion = useMemo(() => prefersReducedMotion(), []);
+
+  useEffect(() => {
+    const control = controls.current;
+    if (!control) return;
+
+    const offset = camera.position.clone().sub(control.target);
+    const current = offset.length();
+    const zoomedByHand =
+      framedAt.current !== null && Math.abs(current - framedAt.current) > 1e-3;
+    if (zoomedByHand) return;
+
+    const distance = THREE.MathUtils.clamp(
+      fitDistance(
+        { width: size.width, height: size.height },
+        (FOV * Math.PI) / 180,
+        FRAMED_EXTENT,
+      ),
+      MIN_DISTANCE,
+      MAX_DISTANCE,
+    );
+    camera.position.copy(
+      control.target.clone().add(offset.normalize().multiplyScalar(distance)),
+    );
+    control.update();
+    framedAt.current = distance;
+  }, [controls, camera, size.width, size.height]);
+
+  useEffect(() => {
+    const control = controls.current;
+    if (!control || !cameraFocusAtomId) return;
+    const placement = layout[cameraFocusAtomId];
+    if (!placement) return;
+
+    const offset = camera.position.clone().sub(control.target);
+    const from = new THREE.Spherical().setFromVector3(offset);
+
+    // Stand the camera on the far side of the Atom's own direction, so the
+    // Atom ends up between the camera and the Sphere's centre.
+    const direction = new THREE.Vector3(...placement.position).normalize();
+    const to = new THREE.Spherical().setFromVector3(
+      direction.multiplyScalar(from.radius),
+    );
+    to.radius = from.radius;
+
+    // Take the short way round rather than unwinding the long way.
+    while (to.theta - from.theta > Math.PI) to.theta -= Math.PI * 2;
+    while (to.theta - from.theta < -Math.PI) to.theta += Math.PI * 2;
+
+    if (reducedMotion) {
+      camera.position.setFromSpherical(to);
+      control.target.set(0, 0, 0);
+      control.update();
+      return;
+    }
+
+    flight.current = {
+      start: performance.now(),
+      from,
+      to,
+      fromTarget: control.target.clone(),
+    };
+  }, [controls, camera, cameraFocusAtomId, layout, reducedMotion]);
+
+  useFrame(() => {
+    const control = controls.current;
+    const active = flight.current;
+    if (!control || !active) return;
+
+    const progress = Math.min(
+      1,
+      (performance.now() - active.start) / FLIGHT_MS,
+    );
+    const eased =
+      progress < 0.5
+        ? 4 * progress ** 3
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    const step = new THREE.Spherical(
+      active.from.radius,
+      THREE.MathUtils.lerp(active.from.phi, active.to.phi, eased),
+      THREE.MathUtils.lerp(active.from.theta, active.to.theta, eased),
+    );
+    control.target.copy(active.fromTarget).multiplyScalar(1 - eased);
+    camera.position.setFromSpherical(step).add(control.target);
+    control.update();
+
+    if (progress >= 1) flight.current = null;
+  });
+
+  return null;
+}
+
+/**
  * Full-viewport Sphere scene.
  *
  * Idles in a slow auto-rotation, hands control to the visitor the moment they
@@ -507,6 +769,8 @@ function SignalTicks() {
 export function SphereScene() {
   const [isIdle, setIsIdle] = useState(true);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controls = useRef<OrbitControlsImpl>(null);
+  const { selectedAtomId } = useSphere();
 
   const clearResumeTimer = useCallback(() => {
     if (resumeTimer.current === null) return;
@@ -541,16 +805,26 @@ export function SphereScene() {
       <SphereShell />
       <ConnectionLines />
       <SignalTicks />
+      <ConnectionHitTargets />
       <AtomNodes />
+      <ProjectionPublisher />
+      <CameraDirector controls={controls} />
       <OrbitControls
-        autoRotate={isIdle}
+        ref={controls}
+        // The idle drift is for the resting Sphere. Once an Atom is selected
+        // the visitor is reading, and a moving world is the last thing they
+        // want under the type.
+        autoRotate={isIdle && selectedAtomId === null}
         autoRotateSpeed={AUTO_ROTATE_SPEED}
         enableDamping
         dampingFactor={0.08}
         enablePan={false}
-        minDistance={1.6}
-        maxDistance={6}
+        minDistance={MIN_DISTANCE}
+        maxDistance={MAX_DISTANCE}
         rotateSpeed={0.6}
+        // One finger orbits, two pinch to zoom — the touch parity issue #9 asks
+        // for, and the default that fights least with a page that never scrolls.
+        touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }}
         onStart={handleInteractionStart}
         onEnd={handleInteractionEnd}
       />
