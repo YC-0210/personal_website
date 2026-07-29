@@ -54,17 +54,26 @@ const LINE_STRENGTH_BRIGHTNESS = 0.2;
  */
 const MAX_SIGNALS_PER_CONNECTION = 6;
 
-/** Fraction of a Connection one signal streak covers, and how fast it travels. */
-const STREAK_LENGTH = 0.09;
-const STREAK_SPEED = 0.34;
+/** Half-length of a tick, unlit and at the peak of the sweep. */
+const TICK_HALF_LENGTH = 0.0095;
+const TICK_LIT_HALF_LENGTH = 0.022;
 
-/** World size of a signal's head. Small: the signal is a spark, not a bead. */
-const STREAK_HEAD_SIZE = 0.03;
+/** Connections crossed per second by the sweep that lights the ticks. */
+const TICK_SWEEP_SPEED = 0.3;
+
+/** How tightly the sweep falls off either side of its centre. */
+const TICK_SWEEP_FALLOFF = 0.09;
+
+/** A tick this lit also gets a spark at its centre. */
+const TICK_SPARK_THRESHOLD = 0.5;
+
+/** World size of that spark. Small enough to be a highlight, not a bead. */
+const TICK_SPARK_SIZE = 0.014;
 
 /**
- * A soft round dot to draw signal heads with. WebGL caps line width at one
- * pixel, so the head is a sprite — without it a streak is a hairline and the
- * signal stops reading as signal.
+ * A soft round dot to mark the tick the sweep is currently on. WebGL caps line
+ * width at one pixel, so the brightest point of the sweep is a sprite — without
+ * it the lit tick is just a slightly longer hairline.
  */
 function createSparkTexture(): THREE.Texture {
   const size = 64;
@@ -331,37 +340,37 @@ function ConnectionLines() {
 }
 
 /**
- * The signal running along the highlighted Connections: short lean streaks
- * travelling outward from the selected Atom, as many per Connection as the far
- * Atom's Rank earns it.
+ * The signal on the highlighted Connections: fixed ticks across the line, as
+ * many as the far Atom's Rank earns it, lit in turn by a sweep running outward
+ * from the selected Atom.
  *
- * Every streak is two vertices — a bright head and a black tail that vanishes
- * against the canvas under additive blending — so the whole layer is a single
- * draw call however busy the Sphere gets.
+ * The ticks stay where they are, so the count — and therefore the Rank — stays
+ * readable even when nothing is moving. Each tick is two vertices in one shared
+ * buffer, so the whole layer is one draw call however busy the Sphere gets.
  */
-function SignalStreaks() {
+function SignalTicks() {
   const ends = useConnectionEnds();
   const elapsed = useRef(0);
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
 
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
-  const headGeometry = useMemo(() => new THREE.BufferGeometry(), []);
+  const sparkGeometry = useMemo(() => new THREE.BufferGeometry(), []);
   const spark = useMemo(() => createSparkTexture(), []);
 
   useEffect(
     () => () => {
       geometry.dispose();
-      headGeometry.dispose();
+      sparkGeometry.dispose();
       spark.dispose();
     },
-    [geometry, headGeometry, spark],
+    [geometry, sparkGeometry, spark],
   );
 
   useEffect(() => {
-    const streaks = ends.length * MAX_SIGNALS_PER_CONNECTION;
+    const ticks = ends.length * MAX_SIGNALS_PER_CONNECTION;
     for (const [target, vertices] of [
-      [geometry, streaks * 2],
-      [headGeometry, streaks],
+      [geometry, ticks * 2],
+      [sparkGeometry, ticks],
     ] as const) {
       target.setAttribute(
         "position",
@@ -373,66 +382,94 @@ function SignalStreaks() {
       );
       target.setDrawRange(0, 0);
     }
-  }, [geometry, headGeometry, ends.length]);
+  }, [geometry, sparkGeometry, ends.length]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const position = geometry.getAttribute("position");
     const color = geometry.getAttribute("color");
-    const headPosition = headGeometry.getAttribute("position");
-    const headColor = headGeometry.getAttribute("color");
-    if (!position || !color || !headPosition || !headColor) return;
+    const sparkPosition = sparkGeometry.getAttribute("position");
+    const sparkColor = sparkGeometry.getAttribute("color");
+    if (!position || !color || !sparkPosition || !sparkColor) return;
 
     elapsed.current += delta;
 
-    const head = new THREE.Vector3();
-    const tail = new THREE.Vector3();
+    // Reduced motion parks the sweep mid-line: the ticks and their count still
+    // read, they just stop being lit in sequence.
+    const sweep = reducedMotion
+      ? 0.5
+      : (elapsed.current * TICK_SWEEP_SPEED) % 1;
+
+    const along = new THREE.Vector3();
+    const toCamera = new THREE.Vector3();
+    const across = new THREE.Vector3();
+    const centre = new THREE.Vector3();
     let vertex = 0;
+    let sparks = 0;
 
     for (const connection of ends) {
       if (!connection.isHighlighted) continue;
 
-      const signals =
+      along.subVectors(connection.end, connection.start).normalize();
+
+      const ticks =
         1 + Math.round(connection.farRank * (MAX_SIGNALS_PER_CONNECTION - 1));
-      for (let i = 0; i < signals; i++) {
-        // Reduced motion still shows how much signal a Connection carries; it
-        // just holds the streaks still instead of running them.
-        const offset = i / signals;
-        const at = reducedMotion
-          ? offset
-          : (elapsed.current * STREAK_SPEED + offset) % 1;
-        const behind = Math.max(0, at - STREAK_LENGTH);
+      for (let i = 0; i < ticks; i++) {
+        const at = (i + 0.5) / ticks;
+        centre.copy(connection.start).lerp(connection.end, at);
 
-        head.copy(connection.start).lerp(connection.end, at);
-        tail.copy(connection.start).lerp(connection.end, behind);
+        // Lay the tick across the line and square to the camera, so it stays a
+        // tick from wherever the visitor happens to be orbiting.
+        toCamera.subVectors(state.camera.position, centre).normalize();
+        across.crossVectors(along, toCamera);
+        if (across.lengthSq() < 1e-8) continue;
+        across.normalize();
 
-        const brightness = Math.sin(Math.PI * at);
-        position.setXYZ(vertex, tail.x, tail.y, tail.z);
-        color.setXYZ(vertex, 0, 0, 0);
-        position.setXYZ(vertex + 1, head.x, head.y, head.z);
-        color.setXYZ(
-          vertex + 1,
-          SIGNAL_COLOR.r * brightness,
-          SIGNAL_COLOR.g * brightness,
-          SIGNAL_COLOR.b * brightness,
+        // Distance to the sweep, wrapping so it re-enters at the near end.
+        let gap = Math.abs(at - sweep);
+        gap = Math.min(gap, 1 - gap);
+        const lit = Math.exp(
+          -(gap * gap) / (2 * TICK_SWEEP_FALLOFF * TICK_SWEEP_FALLOFF),
         );
 
-        headPosition.setXYZ(vertex / 2, head.x, head.y, head.z);
-        headColor.setXYZ(
-          vertex / 2,
-          SIGNAL_COLOR.r * brightness,
-          SIGNAL_COLOR.g * brightness,
-          SIGNAL_COLOR.b * brightness,
-        );
-        vertex += 2;
+        const half =
+          TICK_HALF_LENGTH + (TICK_LIT_HALF_LENGTH - TICK_HALF_LENGTH) * lit;
+        const brightness = 0.22 + lit * 0.7;
+
+        for (const end of [-1, 1] as const) {
+          position.setXYZ(
+            vertex,
+            centre.x + across.x * half * end,
+            centre.y + across.y * half * end,
+            centre.z + across.z * half * end,
+          );
+          color.setXYZ(
+            vertex,
+            SIGNAL_COLOR.r * brightness,
+            SIGNAL_COLOR.g * brightness,
+            SIGNAL_COLOR.b * brightness,
+          );
+          vertex += 1;
+        }
+
+        if (lit > TICK_SPARK_THRESHOLD) {
+          sparkPosition.setXYZ(sparks, centre.x, centre.y, centre.z);
+          sparkColor.setXYZ(
+            sparks,
+            SIGNAL_COLOR.r * lit,
+            SIGNAL_COLOR.g * lit,
+            SIGNAL_COLOR.b * lit,
+          );
+          sparks += 1;
+        }
       }
     }
 
     geometry.setDrawRange(0, vertex);
-    headGeometry.setDrawRange(0, vertex / 2);
+    sparkGeometry.setDrawRange(0, sparks);
     position.needsUpdate = true;
     color.needsUpdate = true;
-    headPosition.needsUpdate = true;
-    headColor.needsUpdate = true;
+    sparkPosition.needsUpdate = true;
+    sparkColor.needsUpdate = true;
   });
 
   return (
@@ -445,10 +482,10 @@ function SignalStreaks() {
           blending={THREE.AdditiveBlending}
         />
       </lineSegments>
-      <points frustumCulled={false} geometry={headGeometry}>
+      <points frustumCulled={false} geometry={sparkGeometry}>
         <pointsMaterial
           map={spark}
-          size={STREAK_HEAD_SIZE}
+          size={TICK_SPARK_SIZE}
           sizeAttenuation
           vertexColors
           transparent
@@ -503,7 +540,7 @@ export function SphereScene() {
       <color attach="background" args={[CANVAS_COLOR]} />
       <SphereShell />
       <ConnectionLines />
-      <SignalStreaks />
+      <SignalTicks />
       <AtomNodes />
       <OrbitControls
         autoRotate={isIdle}
