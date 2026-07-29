@@ -69,6 +69,7 @@ describe("SphereStore", () => {
         isEditMode: false,
         authError: null,
         writeError: null,
+        pendingConnection: null,
       });
     });
 
@@ -105,6 +106,7 @@ describe("SphereStore", () => {
         isEditMode: false,
         authError: null,
         writeError: null,
+        pendingConnection: null,
       });
     });
 

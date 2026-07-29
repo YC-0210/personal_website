@@ -36,6 +36,9 @@ export interface Connection {
  */
 export type AtomDraft = Omit<Atom, "id">;
 
+/** The same, for a Connection: the two endpoints, a Strength and a description. */
+export type ConnectionDraft = Omit<Connection, "id">;
+
 /** A snapshot of everything the Sphere persists. */
 export interface SphereSnapshot {
   atoms: Atom[];

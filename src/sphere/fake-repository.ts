@@ -4,6 +4,8 @@ import type {
   AtomDraft,
   AtomId,
   Connection,
+  ConnectionDraft,
+  ConnectionId,
   SphereSnapshot,
 } from "./domain";
 import type { SphereRepository } from "./repository";
@@ -65,6 +67,37 @@ export class FakeSphereRepository implements SphereRepository {
     this.atoms = this.atoms.filter((atom) => atom.id !== atomId);
     this.connections = this.connections.filter(
       (connection) => !connectionTouchesAtom(connection, atomId),
+    );
+  }
+
+  async createConnection(draft: ConnectionDraft): Promise<Connection> {
+    if (this.failure) throw this.failure;
+    const connection: Connection = {
+      ...draft,
+      id: `generated-connection-${this.nextId++}`,
+    };
+    this.connections.push(connection);
+    return { ...connection };
+  }
+
+  async updateConnection(
+    connectionId: ConnectionId,
+    draft: ConnectionDraft,
+  ): Promise<Connection> {
+    if (this.failure) throw this.failure;
+    const index = this.connections.findIndex(
+      (connection) => connection.id === connectionId,
+    );
+    if (index === -1) throw new Error(`No Connection with id ${connectionId}`);
+
+    this.connections[index] = { ...draft, id: connectionId };
+    return { ...this.connections[index] };
+  }
+
+  async deleteConnection(connectionId: ConnectionId): Promise<void> {
+    if (this.failure) throw this.failure;
+    this.connections = this.connections.filter(
+      (connection) => connection.id !== connectionId,
     );
   }
 

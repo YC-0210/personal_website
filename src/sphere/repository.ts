@@ -1,4 +1,12 @@
-import type { Atom, AtomDraft, AtomId, SphereSnapshot } from "./domain";
+import type {
+  Atom,
+  AtomDraft,
+  AtomId,
+  Connection,
+  ConnectionDraft,
+  ConnectionId,
+  SphereSnapshot,
+} from "./domain";
 
 /**
  * Persistence seam for the Sphere store.
@@ -26,4 +34,16 @@ export interface SphereRepository {
    * to an Atom that no longer exists is not a thing the Sphere can hold.
    */
   deleteAtom(atomId: AtomId): Promise<void>;
+
+  /** Persist a new Connection and return it with its assigned id. */
+  createConnection(draft: ConnectionDraft): Promise<Connection>;
+
+  /** Overwrite an existing Connection and return it as saved. */
+  updateConnection(
+    connectionId: ConnectionId,
+    draft: ConnectionDraft,
+  ): Promise<Connection>;
+
+  /** Remove a Connection. Both Atoms it ran between stay where they are. */
+  deleteConnection(connectionId: ConnectionId): Promise<void>;
 }
