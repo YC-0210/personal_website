@@ -9,6 +9,7 @@ import {
   type AuthProvider,
   type OwnerSession,
 } from "./auth";
+import { deriveEmphasis, type SphereEmphasis } from "./emphasis";
 import { layoutSphere, type AtomLayout } from "./layout";
 import { rankAtoms } from "./rank";
 import type { SphereRepository } from "./repository";
@@ -22,6 +23,8 @@ export interface SphereState {
   /** Derived Rank and position per Atom, recomputed whenever the data changes. */
   layout: Record<AtomId, AtomLayout>;
   selectedAtomId: AtomId | null;
+  /** How each Atom and Connection should read, given the current selection. */
+  emphasis: SphereEmphasis;
   /** Message from the last failed load, cleared when a load succeeds. */
   error: string | null;
   /** The signed-in Owner, or null for a visitor. */
@@ -43,6 +46,7 @@ const EMPTY_STATE: SphereState = {
   connections: [],
   layout: {},
   selectedAtomId: null,
+  emphasis: { atoms: {}, connections: {} },
   error: null,
   owner: null,
   isEditMode: false,
@@ -102,6 +106,11 @@ export class SphereStore {
         connections,
         layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
         selectedAtomId: selectionSurvives ? this.state.selectedAtomId : null,
+        emphasis: deriveEmphasis(
+          atoms,
+          connections,
+          selectionSurvives ? this.state.selectedAtomId : null,
+        ),
         error: null,
       });
     } catch (cause) {
@@ -116,13 +125,23 @@ export class SphereStore {
   selectAtom(atomId: AtomId): void {
     if (!this.hasAtom(atomId)) return;
     if (this.state.selectedAtomId === atomId) return;
-    this.setState({ selectedAtomId: atomId });
+    this.setState({
+      selectedAtomId: atomId,
+      emphasis: deriveEmphasis(
+        this.state.atoms,
+        this.state.connections,
+        atomId,
+      ),
+    });
   }
 
   /** Return to the default free-orbiting view. */
   clearSelection(): void {
     if (this.state.selectedAtomId === null) return;
-    this.setState({ selectedAtomId: null });
+    this.setState({
+      selectedAtomId: null,
+      emphasis: deriveEmphasis(this.state.atoms, this.state.connections),
+    });
   }
 
   getAtom(atomId: AtomId): Atom | undefined {
