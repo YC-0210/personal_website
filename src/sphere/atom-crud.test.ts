@@ -51,6 +51,10 @@ describe("Owner Atom CRUD", () => {
     expect(added).toBeDefined();
     expect(added!.hoursSpent).toBe(120);
     expect(store.hasAtom(added!.id)).toBe(true);
+
+    // Saved, not just shown: it survives a round-trip through the repository.
+    await store.load();
+    expect(store.getAtom(added!.id)).toEqual(added);
   });
 
   it("lays the new Atom out and re-Ranks the Sphere around it, without reloading", async () => {

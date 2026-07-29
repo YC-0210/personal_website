@@ -1,6 +1,7 @@
 "use client";
 
 import { AtomEditor } from "@/components/atom-editor";
+import { ConnectionEditor } from "@/components/connection-editor";
 import { OwnerAffordance } from "@/components/owner-affordance";
 import { SphereScene } from "@/components/sphere-scene";
 import { useSphere } from "@/sphere/use-sphere";
@@ -28,6 +29,7 @@ export default function Home() {
       <SphereScene />
       <OwnerAffordance />
       <AtomEditor />
+      <ConnectionEditor />
       {/*
         A placeholder for the text fallback of every Atom and Connection, which
         the mobile & accessibility ticket builds out properly.

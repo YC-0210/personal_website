@@ -68,6 +68,10 @@ describe("Owner Connection CRUD", () => {
     expect(store.connectionsForAtom(typescript.id)).toEqual([added]);
     expect(store.connectionsForAtom(postgres.id)).toEqual([added]);
     expect(repository.loadCount).toBe(loadsBefore);
+
+    // Saved, not just shown: it survives a round-trip through the repository.
+    await store.load();
+    expect(store.getState().connections).toEqual([added]);
   });
 
   it("edits a Connection's Strength and description in place", async () => {
