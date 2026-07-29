@@ -63,6 +63,7 @@ describe("SphereStore", () => {
         connections: [],
         layout: {},
         selectedAtomId: null,
+        cameraFocusAtomId: null,
         emphasis: { atoms: {}, connections: {} },
         error: null,
         owner: null,
@@ -98,6 +99,7 @@ describe("SphereStore", () => {
         connections: [],
         layout: {},
         selectedAtomId: null,
+        cameraFocusAtomId: null,
         emphasis: { atoms: {}, connections: {} },
         error: null,
         owner: null,
@@ -314,6 +316,155 @@ describe("SphereStore", () => {
       const { emphasis } = store.getState();
       expect(emphasis.atoms[threeJs.id]).toBe("neutral");
       expect(emphasis.connections[threeToPostgres.id]).toBe("neutral");
+    });
+  });
+
+  describe("following a Connection", () => {
+    let repository: FakeSphereRepository;
+    let store: SphereStore;
+
+    beforeEach(async () => {
+      repository = populatedRepository();
+      store = createSphereStore(repository);
+      await store.load();
+    });
+
+    it("moves the selection to the Atom at the Connection's far end", () => {
+      store.selectAtom(typescript.id);
+
+      store.followConnection(typescriptToThree.id);
+
+      expect(store.getState().selectedAtomId).toBe(threeJs.id);
+    });
+
+    it("travels the other way too, since a Connection has no direction", () => {
+      store.selectAtom(threeJs.id);
+
+      store.followConnection(typescriptToThree.id);
+
+      expect(store.getState().selectedAtomId).toBe(typescript.id);
+    });
+
+    it("ignores a Connection that does not touch the selected Atom", () => {
+      store.selectAtom(typescript.id);
+
+      store.followConnection(threeToPostgres.id);
+
+      expect(store.getState().selectedAtomId).toBe(typescript.id);
+    });
+
+    it("ignores a Connection it has never heard of", () => {
+      store.selectAtom(typescript.id);
+
+      store.followConnection("connection-that-was-never-added");
+
+      expect(store.getState().selectedAtomId).toBe(typescript.id);
+    });
+
+    it("has nowhere to travel from when nothing is selected", () => {
+      store.followConnection(typescriptToThree.id);
+
+      expect(store.getState().selectedAtomId).toBeNull();
+    });
+
+    it("sends the camera to the Atom it travelled to", () => {
+      store.selectAtom(typescript.id);
+
+      store.followConnection(typescriptToThree.id);
+
+      expect(store.getState().cameraFocusAtomId).toBe(threeJs.id);
+    });
+
+    it("leaves the camera alone when an Atom is selected in the field", () => {
+      store.selectAtom(threeJs.id);
+
+      expect(store.getState().cameraFocusAtomId).toBeNull();
+    });
+
+    it("releases the camera back to idle when the visitor exits", () => {
+      store.selectAtom(typescript.id);
+      store.followConnection(typescriptToThree.id);
+
+      store.clearSelection();
+
+      expect(store.getState().cameraFocusAtomId).toBeNull();
+    });
+
+    it("releases the camera when the Atom it was sent to is gone after a load", async () => {
+      store.selectAtom(typescript.id);
+      store.followConnection(typescriptToThree.id);
+      repository.setSnapshot({ atoms: [typescript, postgres], connections: [] });
+
+      await store.load();
+
+      expect(store.getState().cameraFocusAtomId).toBeNull();
+    });
+  });
+
+  describe("the text outline", () => {
+    let repository: FakeSphereRepository;
+    let store: SphereStore;
+
+    beforeEach(async () => {
+      repository = populatedRepository();
+      store = createSphereStore(repository);
+      await store.load();
+    });
+
+    it("names every Atom in the Sphere", () => {
+      expect(store.outline().map((entry) => entry.atom.label)).toEqual(
+        expect.arrayContaining(["TypeScript", "Three.js", "Postgres"]),
+      );
+    });
+
+    it("leads with the most-invested Atom, so it reads like the Sphere looks", () => {
+      // 400h, 200h, 120h — the same order the Sphere sizes them in.
+      expect(store.outline().map((entry) => entry.atom.label)).toEqual([
+        "TypeScript",
+        "Postgres",
+        "Three.js",
+      ]);
+    });
+
+    it("lists the Connections leading away from each Atom", () => {
+      const three = store.outline().find((entry) => entry.atom.id === threeJs.id);
+
+      expect(three?.connections).toEqual([
+        {
+          id: typescriptToThree.id,
+          toAtomId: typescript.id,
+          toLabel: "TypeScript",
+          strength: 0.8,
+          description: "r3f is written in TypeScript.",
+        },
+        {
+          id: threeToPostgres.id,
+          toAtomId: postgres.id,
+          toLabel: "Postgres",
+          strength: 0.2,
+          description: "Scene data has to live somewhere.",
+        },
+      ]);
+    });
+
+    it("gives an Atom only the Connections that touch it", () => {
+      const ts = store.outline().find((entry) => entry.atom.id === typescript.id);
+
+      expect(ts?.connections.map((connection) => connection.toLabel)).toEqual([
+        "Three.js",
+      ]);
+    });
+
+    it("moves with the Sphere rather than going stale behind it", async () => {
+      // Read it first: a cached outline would still look right otherwise.
+      expect(store.outline()).toHaveLength(3);
+      repository.setSnapshot({ atoms: [postgres], connections: [] });
+
+      await store.load();
+
+      expect(store.outline().map((entry) => entry.atom.label)).toEqual([
+        "Postgres",
+      ]);
     });
   });
 
