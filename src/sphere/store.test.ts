@@ -63,6 +63,7 @@ describe("SphereStore", () => {
         connections: [],
         layout: {},
         selectedAtomId: null,
+        emphasis: { atoms: {}, connections: {} },
         error: null,
         owner: null,
         isEditMode: false,
@@ -97,6 +98,7 @@ describe("SphereStore", () => {
         connections: [],
         layout: {},
         selectedAtomId: null,
+        emphasis: { atoms: {}, connections: {} },
         error: null,
         owner: null,
         isEditMode: false,
@@ -218,6 +220,100 @@ describe("SphereStore", () => {
       await store.load();
 
       expect(store.getState().atoms[0].label).toBe(typescript.label);
+    });
+  });
+
+  describe("highlight and dim", () => {
+    let repository: FakeSphereRepository;
+    let store: SphereStore;
+
+    beforeEach(async () => {
+      repository = populatedRepository();
+      store = createSphereStore(repository);
+      await store.load();
+    });
+
+    it("emphasises nothing while no Atom is selected", () => {
+      expect(store.getState().emphasis).toEqual({
+        atoms: {
+          [typescript.id]: "neutral",
+          [threeJs.id]: "neutral",
+          [postgres.id]: "neutral",
+        },
+        connections: {
+          [typescriptToThree.id]: "neutral",
+          [threeToPostgres.id]: "neutral",
+        },
+      });
+    });
+
+    it("highlights the selected Atom, its Connections and the Atoms at their far end", () => {
+      store.selectAtom(typescript.id);
+
+      const { emphasis } = store.getState();
+      expect(emphasis.atoms[typescript.id]).toBe("highlighted");
+      expect(emphasis.atoms[threeJs.id]).toBe("highlighted");
+      expect(emphasis.connections[typescriptToThree.id]).toBe("highlighted");
+    });
+
+    it("dims every Atom and Connection the selection does not reach", () => {
+      store.selectAtom(typescript.id);
+
+      const { emphasis } = store.getState();
+      expect(emphasis.atoms[postgres.id]).toBe("dimmed");
+      expect(emphasis.connections[threeToPostgres.id]).toBe("dimmed");
+    });
+
+    it("lets everything back up to its resting weight when the selection clears", () => {
+      store.selectAtom(typescript.id);
+
+      store.clearSelection();
+
+      const { emphasis } = store.getState();
+      expect(Object.values(emphasis.atoms)).toEqual([
+        "neutral",
+        "neutral",
+        "neutral",
+      ]);
+      expect(Object.values(emphasis.connections)).toEqual([
+        "neutral",
+        "neutral",
+      ]);
+    });
+
+    it("picks up Connections added to a selected Atom on the next load", async () => {
+      store.selectAtom(typescript.id);
+      const typescriptToPostgres: Connection = {
+        id: "connection-ts-postgres",
+        fromAtomId: typescript.id,
+        toAtomId: postgres.id,
+        strength: 0.4,
+        description: "Typed queries.",
+      };
+      repository.setSnapshot({
+        atoms: [typescript, threeJs, postgres],
+        connections: [typescriptToThree, threeToPostgres, typescriptToPostgres],
+      });
+
+      await store.load();
+
+      const { emphasis } = store.getState();
+      expect(emphasis.connections[typescriptToPostgres.id]).toBe("highlighted");
+      expect(emphasis.atoms[postgres.id]).toBe("highlighted");
+    });
+
+    it("drops the highlight when the selected Atom is gone after a load", async () => {
+      store.selectAtom(typescript.id);
+      repository.setSnapshot({
+        atoms: [threeJs, postgres],
+        connections: [threeToPostgres],
+      });
+
+      await store.load();
+
+      const { emphasis } = store.getState();
+      expect(emphasis.atoms[threeJs.id]).toBe("neutral");
+      expect(emphasis.connections[threeToPostgres.id]).toBe("neutral");
     });
   });
 
