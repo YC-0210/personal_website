@@ -3,13 +3,17 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { createSphereStore, type SphereState, type SphereStore } from "./store";
+import { SupabaseAuthProvider } from "./supabase-auth-provider";
 import { SupabaseSphereRepository } from "./supabase-repository";
 
 let store: SphereStore | null = null;
 
 /** The one Sphere store the page shares, created lazily in the browser. */
 export function getSphereStore(): SphereStore {
-  store ??= createSphereStore(new SupabaseSphereRepository());
+  store ??= createSphereStore(
+    new SupabaseSphereRepository(),
+    new SupabaseAuthProvider(),
+  );
   return store;
 }
 
@@ -20,6 +24,9 @@ const SERVER_SNAPSHOT: SphereState = {
   layout: {},
   selectedAtomId: null,
   error: null,
+  owner: null,
+  isEditMode: false,
+  authError: null,
 };
 
 /**
@@ -41,6 +48,21 @@ export function useSphere(): SphereState {
     if (sphereStore.getState().status === "idle") {
       void sphereStore.load();
     }
+  }, [sphereStore]);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    void sphereStore.restoreSession().then((stop) => {
+      if (cancelled) stop();
+      else unsubscribe = stop;
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [sphereStore]);
 
   return state;

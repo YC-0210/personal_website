@@ -4,6 +4,11 @@ import {
   type AtomId,
   type Connection,
 } from "./domain";
+import {
+  UnconfiguredAuthProvider,
+  type AuthProvider,
+  type OwnerSession,
+} from "./auth";
 import { layoutSphere, type AtomLayout } from "./layout";
 import { rankAtoms } from "./rank";
 import type { SphereRepository } from "./repository";
@@ -19,6 +24,15 @@ export interface SphereState {
   selectedAtomId: AtomId | null;
   /** Message from the last failed load, cleared when a load succeeds. */
   error: string | null;
+  /** The signed-in Owner, or null for a visitor. */
+  owner: OwnerSession | null;
+  /**
+   * Whether the Owner's editing affordances should be offered. Edit Mode only
+   * ever *adds* to the page — the Sphere itself renders the same either way.
+   */
+  isEditMode: boolean;
+  /** Message from the last failed sign-in, cleared on the next attempt. */
+  authError: string | null;
 }
 
 export type SphereListener = (state: SphereState) => void;
@@ -30,6 +44,9 @@ const EMPTY_STATE: SphereState = {
   layout: {},
   selectedAtomId: null,
   error: null,
+  owner: null,
+  isEditMode: false,
+  authError: null,
 };
 
 /**
@@ -46,7 +63,10 @@ export class SphereStore {
   private state: SphereState = EMPTY_STATE;
   private readonly listeners = new Set<SphereListener>();
 
-  constructor(private readonly repository: SphereRepository) {}
+  constructor(
+    private readonly repository: SphereRepository,
+    private readonly auth: AuthProvider = new UnconfiguredAuthProvider(),
+  ) {}
 
   /**
    * The current snapshot. The returned object is frozen and replaced wholesale
@@ -120,12 +140,60 @@ export class SphereStore {
     );
   }
 
+  /**
+   * Sign the Owner in. On success the page gains Edit Mode; on failure the
+   * store stays exactly as it was, with the reason in `authError`.
+   */
+  async signIn(email: string, password: string): Promise<void> {
+    this.setState({ authError: null });
+    try {
+      const owner = await this.auth.signIn(email, password);
+      this.setState({ owner, isEditMode: true, authError: null });
+    } catch (cause) {
+      this.setState({
+        owner: null,
+        isEditMode: false,
+        authError: cause instanceof Error ? cause.message : String(cause),
+      });
+    }
+  }
+
+  /** Return to the plain visitor experience on this device. */
+  async signOut(): Promise<void> {
+    await this.auth.signOut();
+    this.setState({ owner: null, isEditMode: false, authError: null });
+  }
+
+  /**
+   * Pick up a session the Owner already had, and keep following it if it goes
+   * away on its own. Returns the unsubscribe for the session listener.
+   */
+  async restoreSession(): Promise<() => void> {
+    const unsubscribe = this.auth.onSessionChange((session) => {
+      this.setState({ owner: session, isEditMode: session !== null });
+    });
+
+    try {
+      const session = await this.auth.currentSession();
+      this.setState({ owner: session, isEditMode: session !== null });
+    } catch {
+      // A session we can't read is the same as no session; the visitor view is
+      // the safe default and sign-in is still one click away.
+      this.setState({ owner: null, isEditMode: false });
+    }
+
+    return unsubscribe;
+  }
+
   private setState(patch: Partial<SphereState>): void {
     this.state = Object.freeze({ ...this.state, ...patch });
     for (const listener of this.listeners) listener(this.state);
   }
 }
 
-export function createSphereStore(repository: SphereRepository): SphereStore {
-  return new SphereStore(repository);
+export function createSphereStore(
+  repository: SphereRepository,
+  auth?: AuthProvider,
+): SphereStore {
+  return new SphereStore(repository, auth);
 }

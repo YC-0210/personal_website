@@ -64,6 +64,9 @@ describe("SphereStore", () => {
         layout: {},
         selectedAtomId: null,
         error: null,
+        owner: null,
+        isEditMode: false,
+        authError: null,
       });
     });
 
@@ -95,6 +98,9 @@ describe("SphereStore", () => {
         layout: {},
         selectedAtomId: null,
         error: null,
+        owner: null,
+        isEditMode: false,
+        authError: null,
       });
     });
 
