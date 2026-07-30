@@ -317,6 +317,131 @@ describe("SphereStore", () => {
     });
   });
 
+  describe("following a Connection", () => {
+    let store: SphereStore;
+
+    beforeEach(async () => {
+      store = createSphereStore(populatedRepository());
+      await store.load();
+    });
+
+    it("moves the selection to the Atom at the far end", () => {
+      store.selectAtom(typescript.id);
+
+      store.selectViaConnection(typescriptToThree.id);
+
+      expect(store.getState().selectedAtomId).toBe(threeJs.id);
+    });
+
+    it("ignores a Connection that does not touch the current selection", () => {
+      store.selectAtom(typescript.id);
+
+      store.selectViaConnection(threeToPostgres.id);
+
+      expect(store.getState().selectedAtomId).toBe(typescript.id);
+    });
+
+    it("arrives from either end of an undirected Connection", () => {
+      store.selectAtom(postgres.id);
+
+      store.selectViaConnection(threeToPostgres.id);
+
+      expect(store.getState().selectedAtomId).toBe(threeJs.id);
+    });
+
+    it("re-lights the Sphere around the Atom it arrives at", () => {
+      store.selectAtom(typescript.id);
+
+      store.selectViaConnection(typescriptToThree.id);
+
+      const { emphasis } = store.getState();
+      expect(emphasis.atoms[postgres.id]).toBe("highlighted");
+      expect(emphasis.connections[threeToPostgres.id]).toBe("highlighted");
+    });
+
+    it("goes nowhere from a Connection it has never heard of", () => {
+      store.selectAtom(typescript.id);
+
+      store.selectViaConnection("connection-that-was-never-added");
+
+      expect(store.getState().selectedAtomId).toBe(typescript.id);
+    });
+
+    it("goes nowhere while no Atom is selected", () => {
+      store.selectViaConnection(typescriptToThree.id);
+
+      expect(store.getState().selectedAtomId).toBeNull();
+    });
+  });
+
+  describe("exiting", () => {
+    let store: SphereStore;
+
+    beforeEach(async () => {
+      store = createSphereStore(populatedRepository());
+      await store.load();
+    });
+
+    it("leaves nothing selected and nothing to describe", () => {
+      store.selectAtom(typescript.id);
+      store.selectViaConnection(typescriptToThree.id);
+
+      store.clearSelection();
+
+      expect(store.getState().selectedAtomId).toBeNull();
+      expect(store.selectedDetail()).toBeNull();
+    });
+  });
+
+  describe("the detail of the selected Atom", () => {
+    let store: SphereStore;
+
+    beforeEach(async () => {
+      store = createSphereStore(populatedRepository());
+      await store.load();
+    });
+
+    it("gives the Atom and, for each Connection, where it leads", () => {
+      store.selectAtom(threeJs.id);
+
+      expect(store.selectedDetail()).toEqual({
+        atom: threeJs,
+        connections: [
+          { connection: typescriptToThree, otherAtom: typescript },
+          { connection: threeToPostgres, otherAtom: postgres },
+        ],
+      });
+    });
+
+    it("describes the Atom a Connection led to, not the one it left", () => {
+      store.selectAtom(typescript.id);
+
+      store.selectViaConnection(typescriptToThree.id);
+
+      expect(store.selectedDetail()?.atom).toEqual(threeJs);
+    });
+
+    it("describes an Atom with no Connections at all", async () => {
+      const lonely: Atom = {
+        id: "atom-lonely",
+        label: "Woodworking",
+        description: "Nothing to do with the rest of it.",
+        hoursSpent: 30,
+      };
+      const solitaryStore = createSphereStore(
+        new FakeSphereRepository({ atoms: [lonely], connections: [] }),
+      );
+      await solitaryStore.load();
+
+      solitaryStore.selectAtom(lonely.id);
+
+      expect(solitaryStore.selectedDetail()).toEqual({
+        atom: lonely,
+        connections: [],
+      });
+    });
+  });
+
   describe("when the repository fails", () => {
     it("surfaces the failure without losing the store", async () => {
       const repository = populatedRepository();

@@ -1,8 +1,10 @@
 import {
   connectionTouchesAtom,
+  otherEndOfConnection,
   type Atom,
   type AtomId,
   type Connection,
+  type ConnectionId,
 } from "./domain";
 import {
   UnconfiguredAuthProvider,
@@ -39,6 +41,19 @@ export interface SphereState {
 }
 
 export type SphereListener = (state: SphereState) => void;
+
+/** One row of the detail panel's Connections list. */
+export interface ConnectionDetail {
+  connection: Connection;
+  /** The Atom this Connection leads to from the Atom being described. */
+  otherAtom: Atom;
+}
+
+/** Everything the detail panel shows about one Atom. */
+export interface AtomDetail {
+  atom: Atom;
+  connections: ConnectionDetail[];
+}
 
 const EMPTY_STATE: SphereState = {
   status: "idle",
@@ -135,6 +150,26 @@ export class SphereStore {
     });
   }
 
+  /**
+   * Follow a Connection out of the current selection, landing on the Atom at
+   * its far end.
+   */
+  selectViaConnection(connectionId: ConnectionId): void {
+    const { selectedAtomId } = this.state;
+    if (selectedAtomId === null) return;
+
+    const connection = this.state.connections.find(
+      (candidate) => candidate.id === connectionId,
+    );
+    // Only the Connections leaving the current selection are routes; the rest
+    // are dimmed and unclickable, so reaching one is a bug, not a navigation.
+    if (!connection || !connectionTouchesAtom(connection, selectedAtomId)) {
+      return;
+    }
+
+    this.selectAtom(otherEndOfConnection(connection, selectedAtomId));
+  }
+
   /** Return to the default free-orbiting view. */
   clearSelection(): void {
     if (this.state.selectedAtomId === null) return;
@@ -157,6 +192,25 @@ export class SphereStore {
     return this.state.connections.filter((connection) =>
       connectionTouchesAtom(connection, atomId),
     );
+  }
+
+  /**
+   * What the detail panel shows: the selected Atom, and every Connection
+   * leaving it paired with the Atom it leads to.
+   */
+  selectedDetail(): AtomDetail | null {
+    const atom = this.state.selectedAtomId
+      ? this.getAtom(this.state.selectedAtomId)
+      : undefined;
+    if (!atom) return null;
+
+    const connections: ConnectionDetail[] = [];
+    for (const connection of this.connectionsForAtom(atom.id)) {
+      const otherAtom = this.getAtom(otherEndOfConnection(connection, atom.id));
+      if (otherAtom) connections.push({ connection, otherAtom });
+    }
+
+    return { atom, connections };
   }
 
   /**
