@@ -45,6 +45,11 @@ unauthenticated writes. It needs credentials, so it is excluded from `npm test`:
 set -a && . ./.env.local && set +a && npm run test:integration
 ```
 
+It also has an Owner half — an authenticated Connection create/edit/delete
+round-trip, which cleans up everything it makes. That needs the Owner's password,
+which is not in the repo, so it **skips** unless `SPHERE_OWNER_EMAIL` and
+`SPHERE_OWNER_PASSWORD` are set in `.env.local`.
+
 ## Database
 
 The schema lives in `supabase/migrations/`. Reads are public; writes require an

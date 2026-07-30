@@ -1,8 +1,11 @@
 import {
   connectionTouchesAtom,
   type Atom,
+  type AtomDraft,
   type AtomId,
   type Connection,
+  type ConnectionDraft,
+  type ConnectionId,
 } from "./domain";
 import {
   UnconfiguredAuthProvider,
@@ -36,6 +39,23 @@ export interface SphereState {
   isEditMode: boolean;
   /** Message from the last failed sign-in, cleared on the next attempt. */
   authError: string | null;
+  /**
+   * Message from the last failed Owner write. Kept apart from `error` so a
+   * refused save reports itself in the form without taking the Sphere down.
+   */
+  writeError: string | null;
+  /**
+   * The Connection the Owner is in the middle of drawing, if any. Clicking an
+   * Atom fills the near end, clicking a second fills the far one; once both are
+   * set the form has everything it needs bar Strength and a description.
+   */
+  pendingConnection: PendingConnection | null;
+}
+
+/** The two ends of a Connection being drawn, either of which may not be picked yet. */
+export interface PendingConnection {
+  fromAtomId: AtomId | null;
+  toAtomId: AtomId | null;
 }
 
 export type SphereListener = (state: SphereState) => void;
@@ -51,6 +71,8 @@ const EMPTY_STATE: SphereState = {
   owner: null,
   isEditMode: false,
   authError: null,
+  writeError: null,
+  pendingConnection: null,
 };
 
 /**
@@ -96,23 +118,7 @@ export class SphereStore {
 
     try {
       const { atoms, connections } = await this.repository.loadSnapshot();
-      const selectionSurvives =
-        this.state.selectedAtomId !== null &&
-        atoms.some((atom) => atom.id === this.state.selectedAtomId);
-
-      this.setState({
-        status: "ready",
-        atoms,
-        connections,
-        layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
-        selectedAtomId: selectionSurvives ? this.state.selectedAtomId : null,
-        emphasis: deriveEmphasis(
-          atoms,
-          connections,
-          selectionSurvives ? this.state.selectedAtomId : null,
-        ),
-        error: null,
-      });
+      this.applySphere(atoms, connections, { status: "ready", error: null });
     } catch (cause) {
       this.setState({
         status: "error",
@@ -121,9 +127,31 @@ export class SphereStore {
     }
   }
 
-  /** Select an Atom. Unknown ids are ignored, leaving the selection as it was. */
+  /**
+   * Start drawing a Connection. The next two Atoms the Owner clicks become its
+   * ends — the gesture *is* the selection they already use to point at an Atom,
+   * so there is nothing new to learn and nothing to drag.
+   */
+  beginConnection(): void {
+    this.requireEditMode();
+    this.setState({ pendingConnection: { fromAtomId: null, toAtomId: null } });
+  }
+
+  /** Abandon a half-drawn Connection. */
+  cancelConnection(): void {
+    if (this.state.pendingConnection === null) return;
+    this.setState({ pendingConnection: null });
+  }
+
+  /**
+   * Select an Atom. Unknown ids are ignored, leaving the selection as it was.
+   *
+   * While a Connection is being drawn this is how its ends get picked, so the
+   * click does double duty: it still selects, and it fills the next open end.
+   */
   selectAtom(atomId: AtomId): void {
     if (!this.hasAtom(atomId)) return;
+    this.pickConnectionEnd(atomId);
     if (this.state.selectedAtomId === atomId) return;
     this.setState({
       selectedAtomId: atomId,
@@ -157,6 +185,125 @@ export class SphereStore {
     return this.state.connections.filter((connection) =>
       connectionTouchesAtom(connection, atomId),
     );
+  }
+
+  /**
+   * Create an Atom. It reaches Supabase first and only then the Sphere, so what
+   * the Owner sees is what was actually saved — including the id assigned to it.
+   */
+  async addAtom(draft: AtomDraft): Promise<void> {
+    await this.write(async () => {
+      const atom = await this.repository.createAtom(draft);
+      this.applySphere([...this.state.atoms, atom], this.state.connections);
+    });
+  }
+
+  /** Rewrite an existing Atom. Rank and layout follow the new hours at once. */
+  async editAtom(atomId: AtomId, draft: AtomDraft): Promise<void> {
+    await this.write(async () => {
+      const saved = await this.repository.updateAtom(atomId, draft);
+      this.applySphere(
+        this.state.atoms.map((atom) => (atom.id === atomId ? saved : atom)),
+        this.state.connections,
+      );
+    });
+  }
+
+  /**
+   * Remove an Atom and every Connection that touched it. The cascade is the
+   * database's, and it is mirrored here so the Sphere doesn't briefly draw a
+   * Connection to an Atom that has already gone.
+   */
+  async deleteAtom(atomId: AtomId): Promise<void> {
+    await this.write(async () => {
+      await this.repository.deleteAtom(atomId);
+      this.applySphere(
+        this.state.atoms.filter((atom) => atom.id !== atomId),
+        this.state.connections.filter(
+          (connection) => !connectionTouchesAtom(connection, atomId),
+        ),
+      );
+    });
+  }
+
+  /**
+   * Create a Connection between two Atoms. Strength feeds the layout's
+   * attraction, so the Sphere re-settles around the new link straight away.
+   */
+  async addConnection(draft: ConnectionDraft): Promise<void> {
+    await this.write(async () => {
+      // Connections are undirected, so A-B and B-A are the same Connection. The
+      // schema enforces that with a unique index on the canonically-ordered
+      // pair; catching it here turns a constraint name into a sentence.
+      const alreadyConnected = this.state.connections.some(
+        (connection) =>
+          connectionTouchesAtom(connection, draft.fromAtomId) &&
+          connectionTouchesAtom(connection, draft.toAtomId),
+      );
+      if (alreadyConnected) {
+        throw new Error("Those two Atoms are already connected.");
+      }
+
+      const connection = await this.repository.createConnection(draft);
+      this.applySphere(this.state.atoms, [
+        ...this.state.connections,
+        connection,
+      ]);
+    });
+  }
+
+  /**
+   * Save the Connection the Owner has been drawing, with the Strength and
+   * description they filled in. The pair comes from the two Atoms they clicked
+   * rather than from the form, so the endpoints are settled before it opens.
+   */
+  async completeConnection(
+    details: Pick<ConnectionDraft, "strength" | "description">,
+  ): Promise<void> {
+    const pending = this.state.pendingConnection;
+    if (pending?.fromAtomId == null || pending.toAtomId == null) {
+      const refusal = new Error(
+        "Pick two Atoms before saving the Connection between them.",
+      );
+      this.setState({ writeError: refusal.message });
+      throw refusal;
+    }
+
+    await this.addConnection({
+      fromAtomId: pending.fromAtomId,
+      toAtomId: pending.toAtomId,
+      ...details,
+    });
+    this.setState({ pendingConnection: null });
+  }
+
+  /** Rewrite a Connection. The layout re-settles on the new Strength at once. */
+  async editConnection(
+    connectionId: ConnectionId,
+    draft: ConnectionDraft,
+  ): Promise<void> {
+    await this.write(async () => {
+      const saved = await this.repository.updateConnection(connectionId, draft);
+      this.applySphere(
+        this.state.atoms,
+        this.state.connections.map((connection) =>
+          connection.id === connectionId ? saved : connection,
+        ),
+      );
+    });
+  }
+
+  /** Remove a Connection. Both Atoms it ran between stay exactly where they are. */
+  async deleteConnection(connectionId: ConnectionId): Promise<void> {
+    await this.write(async () => {
+      await this.repository.deleteConnection(connectionId);
+      this.applySphere(
+        this.state.atoms,
+        this.state.connections.filter(
+          (connection) => connection.id !== connectionId,
+        ),
+      );
+    });
   }
 
   /**
@@ -202,6 +349,90 @@ export class SphereStore {
     }
 
     return unsubscribe;
+  }
+
+  /**
+   * Fill the next open end of the Connection being drawn.
+   *
+   * An Atom cannot connect to itself — the schema says so too — so clicking the
+   * near end again leaves the far one open rather than closing the pair.
+   */
+  private pickConnectionEnd(atomId: AtomId): void {
+    const pending = this.state.pendingConnection;
+    if (pending === null) return;
+
+    if (pending.fromAtomId === null) {
+      this.setState({ pendingConnection: { ...pending, fromAtomId: atomId } });
+      return;
+    }
+    if (pending.toAtomId === null && atomId !== pending.fromAtomId) {
+      this.setState({ pendingConnection: { ...pending, toAtomId: atomId } });
+    }
+  }
+
+  /**
+   * Supabase's RLS policies are what actually keep a visitor out. This is the
+   * near side of the same rule, applied to the gestures that lead to a write as
+   * well as to the writes themselves.
+   */
+  private requireEditMode(): void {
+    if (!this.state.isEditMode) {
+      throw new Error("Edit Mode is required to change the Sphere.");
+    }
+  }
+
+  /**
+   * The common shape of every Owner write: refuse it outright unless Edit Mode
+   * is on, and record why it failed if it did.
+   *
+   * Supabase's RLS policies are what actually keep a visitor out; the Edit Mode
+   * check is the near side of that same rule, so a write that could only ever be
+   * refused is never sent and a bug in the UI can't quietly attempt one.
+   *
+   * The rejection is re-thrown as well as recorded, so a caller that wants to
+   * keep a form open on failure can await it, and one that only renders state
+   * can read `writeError`.
+   */
+  private async write(operation: () => Promise<void>): Promise<void> {
+    try {
+      this.requireEditMode();
+      this.setState({ writeError: null });
+      await operation();
+    } catch (cause) {
+      this.setState({
+        writeError: cause instanceof Error ? cause.message : String(cause),
+      });
+      throw cause;
+    }
+  }
+
+  /**
+   * Put a new set of Atoms and Connections in play and re-derive everything that
+   * hangs off them — Rank, layout and emphasis — in one state change.
+   *
+   * Every path that changes the data goes through here, so an Owner write and a
+   * reload leave the Sphere in exactly the same shape. The selection survives as
+   * long as its Atom does.
+   */
+  private applySphere(
+    atoms: Atom[],
+    connections: Connection[],
+    patch: Partial<SphereState> = {},
+  ): void {
+    const selectedAtomId = atoms.some(
+      (atom) => atom.id === this.state.selectedAtomId,
+    )
+      ? this.state.selectedAtomId
+      : null;
+
+    this.setState({
+      atoms,
+      connections,
+      layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
+      selectedAtomId,
+      emphasis: deriveEmphasis(atoms, connections, selectedAtomId),
+      ...patch,
+    });
   }
 
   private setState(patch: Partial<SphereState>): void {

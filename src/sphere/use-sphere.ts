@@ -28,6 +28,8 @@ const SERVER_SNAPSHOT: SphereState = {
   owner: null,
   isEditMode: false,
   authError: null,
+  writeError: null,
+  pendingConnection: null,
 };
 
 /**
