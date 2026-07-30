@@ -51,3 +51,16 @@ export function connectionTouchesAtom(
 ): boolean {
   return connection.fromAtomId === atomId || connection.toAtomId === atomId;
 }
+
+/**
+ * The Atom at the opposite end of `connection` from `atomId`. Connections are
+ * undirected, so which field holds which end carries no meaning.
+ */
+export function otherEndOfConnection(
+  connection: Connection,
+  atomId: AtomId,
+): AtomId {
+  return connection.fromAtomId === atomId
+    ? connection.toAtomId
+    : connection.fromAtomId;
+}

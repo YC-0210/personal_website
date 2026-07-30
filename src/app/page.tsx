@@ -1,5 +1,6 @@
 "use client";
 
+import { AtomDetailPanel } from "@/components/atom-detail-panel";
 import { AtomEditor } from "@/components/atom-editor";
 import { ConnectionEditor } from "@/components/connection-editor";
 import { OwnerAffordance } from "@/components/owner-affordance";
@@ -27,6 +28,7 @@ export default function Home() {
     <main className="fixed inset-0 overflow-hidden">
       <h1 className="sr-only">Knowledge Sphere</h1>
       <SphereScene />
+      <AtomDetailPanel />
       <OwnerAffordance />
       <AtomEditor />
       <ConnectionEditor />
