@@ -87,7 +87,11 @@ export function AtomEditor() {
 
   return (
     <>
-      <div className="fixed right-4 bottom-4 flex items-center gap-2 text-sm">
+      {/*
+        On mobile the detail panel is a bottom sheet, so the controls move to
+        the top edge instead of sitting underneath it.
+      */}
+      <div className="fixed right-4 bottom-4 flex items-center gap-2 text-sm max-md:top-4 max-md:bottom-auto">
         {selected && !isConfirmingDelete && (
           <>
             <button
