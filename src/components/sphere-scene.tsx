@@ -4,6 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { AtomId, ConnectionId } from "@/sphere/domain";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
@@ -19,6 +20,9 @@ const SELECTED_COLOR = new THREE.Color("#828fff");
 
 /** `ink-subtle` — what an Atom fades to when the selection passes it by. */
 const DIM_COLOR = new THREE.Color("#8a8f98");
+
+/** `hairline-strong` — the Lattice shell at rest. */
+const SHELL_COLOR = new THREE.Color("#34343a");
 
 /** `primary` for the Connection itself, `primary-hover` for its signal. */
 const CONNECTION_COLOR = new THREE.Color("#5e6ad2");
@@ -43,6 +47,33 @@ const DIM_OPACITY = 0.3;
 
 /** The selected Atom reads a touch larger than its Rank alone would make it. */
 const SELECTED_SCALE = 1.15;
+
+/**
+ * The Lattice Atom, as chosen from the atom-depth prototypes: a solid core at
+ * half the Atom's radius inside a slowly turning wireframe shell. The shell's
+ * own curvature is what keeps the Atom reading as 3D at any zoom.
+ */
+const LATTICE_CORE_SCALE = 0.5;
+const SHELL_OPACITY = 0.5;
+const SHELL_SELECTED_OPACITY = 0.85;
+const SHELL_DIM_OPACITY = 0.12;
+/** Radians per second of shell spin, before the per-Atom variation. */
+const SHELL_SPIN_BASE = 0.12;
+const SHELL_SPIN_STEP = 0.02;
+
+/** Radius of the invisible cylinder that makes a lit Connection clickable. */
+const CONNECTION_HIT_RADIUS = 0.018;
+
+/** The camera's framing: at rest, and with an Atom selected for the panel. */
+const IDLE_DISTANCE = 2.4;
+const SELECTED_DISTANCE = 2.1;
+/**
+ * With the panel open the orbit target sits this far to the camera's right,
+ * which slides the whole Sphere left on screen and out from behind the card.
+ */
+const PANEL_SHIFT = 0.42;
+const CAMERA_EASE = 2.4;
+const CAMERA_IDLE_EASE = 2.2;
 
 /** A Connection's own brightness carries its Strength, and nothing else. */
 const LINE_BASE_BRIGHTNESS = 0.1;
@@ -122,73 +153,100 @@ function SphereShell() {
 }
 
 /**
- * One node per Atom, at the size and position the store derived from Rank, in
- * the weight the store's emphasis asks for: the selected Atom in lavender, its
- * neighbours at full ink, and everything the selection does not reach shrunk
- * and faded back into the field.
+ * One Lattice node per Atom, at the size and position the store derived from
+ * Rank, in the weight the store's emphasis asks for: the selected Atom in
+ * lavender, its neighbours at full ink, and everything the selection does not
+ * reach shrunk and faded back into the field.
  *
- * Geometry is shared across every node and the nodes are scaled rather than
- * re-tessellated, so the draw cost stays flat as the Sphere grows toward the
- * ~50-Atom target.
+ * Each node is a solid core inside a wireframe shell, and every shell turns at
+ * its own phase and tilt so a field of them never reads as one copied object.
+ * Both geometries are shared across every node and the nodes are scaled rather
+ * than re-tessellated, so the draw cost stays flat as the Sphere grows toward
+ * the ~50-Atom target.
  */
 function AtomNodes() {
   const { atoms, layout, emphasis, selectedAtomId } = useSphere();
   const store = getSphereStore();
+  const reducedMotion = useMemo(() => prefersReducedMotion(), []);
 
-  const geometry = useMemo(() => new THREE.SphereGeometry(1, 16, 16), []);
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  const coreGeometry = useMemo(() => new THREE.SphereGeometry(1, 24, 16), []);
+  const shellGeometry = useMemo(() => new THREE.IcosahedronGeometry(1, 2), []);
+  useEffect(
+    () => () => {
+      coreGeometry.dispose();
+      shellGeometry.dispose();
+    },
+    [coreGeometry, shellGeometry],
+  );
 
-  const meshes = useRef(new Map<AtomId, THREE.Mesh>());
+  const nodes = useRef(new Map<AtomId, THREE.Group>());
 
   const setCursor = useCallback((cursor: string) => {
     document.body.style.cursor = cursor;
   }, []);
   useEffect(() => () => setCursor(""), [setCursor]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const step = 1 - Math.exp(-delta * ATOM_EASE);
 
-    for (const atom of atoms) {
-      const mesh = meshes.current.get(atom.id);
+    atoms.forEach((atom, index) => {
+      const node = nodes.current.get(atom.id);
       const placement = layout[atom.id];
-      if (!mesh || !placement) continue;
+      if (!node || !placement) return;
 
       const isSelected = atom.id === selectedAtomId;
       const isDimmed = emphasis.atoms[atom.id] === "dimmed";
 
-      const targetColor = isSelected
-        ? SELECTED_COLOR
-        : isDimmed
-          ? DIM_COLOR
-          : ATOM_COLOR;
       const targetScale =
         placement.size *
         (isDimmed ? DIM_SCALE : isSelected ? SELECTED_SCALE : 1);
-      const targetOpacity = isDimmed ? DIM_OPACITY : 1;
+      node.scale.setScalar(node.scale.x + (targetScale - node.scale.x) * step);
 
-      const material = mesh.material as THREE.MeshBasicMaterial;
-      material.color.lerp(targetColor, step);
-      material.opacity += (targetOpacity - material.opacity) * step;
-      mesh.scale.setScalar(
-        mesh.scale.x + (targetScale - mesh.scale.x) * step,
+      const core = node.getObjectByName("core") as THREE.Mesh | undefined;
+      const shell = node.getObjectByName("shell") as THREE.Mesh | undefined;
+      if (!core || !shell) return;
+
+      const coreMaterial = core.material as THREE.MeshBasicMaterial;
+      coreMaterial.color.lerp(
+        isSelected ? SELECTED_COLOR : isDimmed ? DIM_COLOR : ATOM_COLOR,
+        step,
       );
-    }
+      const coreOpacity = isDimmed ? DIM_OPACITY : 1;
+      coreMaterial.opacity += (coreOpacity - coreMaterial.opacity) * step;
+
+      const shellMaterial = shell.material as THREE.MeshBasicMaterial;
+      shellMaterial.color.lerp(isSelected ? SELECTED_COLOR : SHELL_COLOR, step);
+      const shellOpacity = isDimmed
+        ? SHELL_DIM_OPACITY
+        : isSelected
+          ? SHELL_SELECTED_OPACITY
+          : SHELL_OPACITY;
+      shellMaterial.opacity += (shellOpacity - shellMaterial.opacity) * step;
+
+      // Reduced motion parks every shell at its own tilt: the lattice still
+      // carries the depth, it just stops turning.
+      if (!reducedMotion) {
+        shell.rotation.y =
+          index * 1.3 +
+          state.clock.elapsedTime *
+            (SHELL_SPIN_BASE + (index % 5) * SHELL_SPIN_STEP);
+      }
+    });
   });
 
   return (
     <>
-      {atoms.map((atom) => {
+      {atoms.map((atom, index) => {
         const placement = layout[atom.id];
         if (!placement) return null;
         return (
-          <mesh
+          <group
             key={atom.id}
-            geometry={geometry}
             position={placement.position as unknown as THREE.Vector3Tuple}
             scale={placement.size}
-            ref={(mesh) => {
-              if (mesh) meshes.current.set(atom.id, mesh);
-              else meshes.current.delete(atom.id);
+            ref={(node) => {
+              if (node) nodes.current.set(atom.id, node);
+              else nodes.current.delete(atom.id);
             }}
             onClick={(event) => {
               event.stopPropagation();
@@ -197,8 +255,23 @@ function AtomNodes() {
             onPointerOver={() => setCursor("pointer")}
             onPointerOut={() => setCursor("")}
           >
-            <meshBasicMaterial color={ATOM_COLOR} transparent />
-          </mesh>
+            <mesh name="core" geometry={coreGeometry} scale={LATTICE_CORE_SCALE}>
+              <meshBasicMaterial color={ATOM_COLOR} transparent />
+            </mesh>
+            <mesh
+              name="shell"
+              geometry={shellGeometry}
+              rotation={[index * 0.7, index * 1.3, 0]}
+            >
+              <meshBasicMaterial
+                color={SHELL_COLOR}
+                wireframe
+                transparent
+                opacity={SHELL_OPACITY}
+                depthWrite={false}
+              />
+            </mesh>
+          </group>
         );
       })}
     </>
@@ -498,6 +571,160 @@ function SignalTicks() {
 }
 
 /**
+ * An invisible, clickable cylinder along each *highlighted* Connection, so a
+ * lit line is a route the visitor can take. Only lit Connections get a hit
+ * area — a dimmed line is not a route, and must not swallow the clicks that
+ * would otherwise clear the selection.
+ */
+function ConnectionHitAreas() {
+  const { connections, layout, emphasis } = useSphere();
+  const store = getSphereStore();
+
+  const geometry = useMemo(
+    () => new THREE.CylinderGeometry(CONNECTION_HIT_RADIUS, CONNECTION_HIT_RADIUS, 1, 6),
+    [],
+  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  const setCursor = useCallback((cursor: string) => {
+    document.body.style.cursor = cursor;
+  }, []);
+  useEffect(() => () => setCursor(""), [setCursor]);
+
+  const routes = useMemo(() => {
+    const up = new THREE.Vector3(0, 1, 0);
+    const placed = [];
+    for (const connection of connections) {
+      if (emphasis.connections[connection.id] !== "highlighted") continue;
+      const from = layout[connection.fromAtomId];
+      const to = layout[connection.toAtomId];
+      if (!from || !to) continue;
+
+      const start = new THREE.Vector3(...from.position);
+      const end = new THREE.Vector3(...to.position);
+      const span = new THREE.Vector3().subVectors(end, start);
+
+      placed.push({
+        id: connection.id,
+        position: start.clone().addScaledVector(span, 0.5),
+        quaternion: new THREE.Quaternion().setFromUnitVectors(
+          up,
+          span.clone().normalize(),
+        ),
+        length: Math.max(span.length(), 1e-4),
+      });
+    }
+    return placed;
+  }, [connections, layout, emphasis]);
+
+  return (
+    <>
+      {routes.map((route) => (
+        <mesh
+          key={route.id}
+          geometry={geometry}
+          position={route.position}
+          quaternion={route.quaternion}
+          scale={[1, route.length, 1]}
+          onClick={(event) => {
+            event.stopPropagation();
+            store.selectViaConnection(route.id);
+          }}
+          onPointerOver={() => setCursor("pointer")}
+          onPointerOut={() => setCursor("")}
+        >
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Frames the camera for the current selection, then lets go.
+ *
+ * On every selection change the camera eases the selected Atom round to face
+ * the visitor, shifted left so the Dossier panel doesn't cover it — or, when
+ * the selection clears, eases back out to the default idle framing. The moment
+ * it arrives (or the visitor grabs the controls) it stops steering, so orbiting
+ * and zooming are never fought.
+ */
+function CameraRig({
+  controls,
+  isInteracting,
+}: {
+  controls: React.RefObject<OrbitControlsImpl | null>;
+  isInteracting: React.RefObject<boolean>;
+}) {
+  const { selectedAtomId, layout } = useSphere();
+  const reducedMotion = useMemo(() => prefersReducedMotion(), []);
+
+  const steering = useRef(false);
+  const steeredSelection = useRef<AtomId | null>(null);
+
+  useFrame((state, delta) => {
+    const orbit = controls.current;
+    if (!orbit) return;
+
+    if (selectedAtomId !== steeredSelection.current) {
+      steeredSelection.current = selectedAtomId;
+      steering.current = true;
+    }
+    // The visitor's hands beat the rig, always: grabbing the controls cancels
+    // the flight, and it only re-arms on the next selection change.
+    if (isInteracting.current) {
+      steering.current = false;
+      return;
+    }
+    if (!steering.current) return;
+
+    const camera = state.camera;
+    const placement = selectedAtomId ? layout[selectedAtomId] : undefined;
+
+    let target: THREE.Vector3;
+    let distance: number;
+    let facing: THREE.Vector3 | null;
+    let ease: number;
+
+    if (!placement) {
+      target = new THREE.Vector3();
+      distance = IDLE_DISTANCE;
+      facing = null;
+      ease = CAMERA_IDLE_EASE;
+    } else {
+      target = new THREE.Vector3()
+        .setFromMatrixColumn(camera.matrixWorld, 0)
+        .normalize()
+        .multiplyScalar(PANEL_SHIFT);
+      distance = SELECTED_DISTANCE;
+      facing = new THREE.Vector3(...placement.position).normalize();
+      ease = CAMERA_EASE;
+    }
+
+    // Reduced motion cuts straight to the destination instead of sweeping.
+    const step = reducedMotion ? 1 : 1 - Math.exp(-delta * ease);
+    orbit.target.lerp(target, step);
+
+    const offset = new THREE.Vector3().subVectors(camera.position, orbit.target);
+    const length = offset.length() + (distance - offset.length()) * step;
+    if (facing === null) {
+      offset.setLength(length);
+    } else {
+      offset.normalize().lerp(facing, step).normalize().setLength(length);
+    }
+    camera.position.copy(orbit.target).add(offset);
+
+    const settled =
+      Math.abs(offset.length() - distance) < 0.01 &&
+      orbit.target.distanceTo(target) < 0.01 &&
+      (facing === null || offset.clone().normalize().dot(facing) > 0.9995);
+    if (settled) steering.current = false;
+  });
+
+  return null;
+}
+
+/**
  * Full-viewport Sphere scene.
  *
  * Idles in a slow auto-rotation, hands control to the visitor the moment they
@@ -505,8 +732,11 @@ function SignalTicks() {
  * Clicking an Atom selects it; clicking past every Atom lets the selection go.
  */
 export function SphereScene() {
+  const { selectedAtomId } = useSphere();
   const [isIdle, setIsIdle] = useState(true);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const isInteracting = useRef(false);
 
   const clearResumeTimer = useCallback(() => {
     if (resumeTimer.current === null) return;
@@ -516,11 +746,13 @@ export function SphereScene() {
 
   const handleInteractionStart = useCallback(() => {
     clearResumeTimer();
+    isInteracting.current = true;
     setIsIdle(false);
   }, [clearResumeTimer]);
 
   const handleInteractionEnd = useCallback(() => {
     clearResumeTimer();
+    isInteracting.current = false;
     resumeTimer.current = setTimeout(
       () => setIsIdle(true),
       RESUME_IDLE_AFTER_MS,
@@ -532,7 +764,7 @@ export function SphereScene() {
   return (
     <Canvas
       aria-hidden="true"
-      camera={{ position: [0, 0, 2.4], fov: 50 }}
+      camera={{ position: [0, 0, IDLE_DISTANCE], fov: 50 }}
       dpr={[1, 2]}
       gl={{ antialias: true }}
       onPointerMissed={() => getSphereStore().clearSelection()}
@@ -541,14 +773,17 @@ export function SphereScene() {
       <SphereShell />
       <ConnectionLines />
       <SignalTicks />
+      <ConnectionHitAreas />
       <AtomNodes />
+      <CameraRig controls={controlsRef} isInteracting={isInteracting} />
       <OrbitControls
-        autoRotate={isIdle}
+        ref={controlsRef}
+        autoRotate={isIdle && selectedAtomId === null}
         autoRotateSpeed={AUTO_ROTATE_SPEED}
         enableDamping
         dampingFactor={0.08}
         enablePan={false}
-        minDistance={1.6}
+        minDistance={0.4}
         maxDistance={6}
         rotateSpeed={0.6}
         onStart={handleInteractionStart}
