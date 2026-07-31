@@ -1,6 +1,6 @@
 "use client";
 
-import { OrbitControls } from "@react-three/drei";
+import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -272,6 +272,68 @@ function AtomNodes() {
               />
             </mesh>
           </group>
+        );
+      })}
+    </>
+  );
+}
+
+/** How far below an Atom's node its Nameplate hangs. */
+const NAMEPLATE_GAP = 0.03;
+
+/** Scales Nameplate text down with camera distance, matching the scene. */
+const NAMEPLATE_DISTANCE_FACTOR = 2.6;
+
+/** Nameplate text size in px at distance factor 1, before Rank's boost. */
+const NAMEPLATE_BASE_SIZE = 9;
+const NAMEPLATE_RANK_SIZE = 6;
+
+/**
+ * A Nameplate under every Atom, always visible so the Sphere can be surveyed
+ * without selecting anything. Rank sets the size, and the emphasis system
+ * colours and fades it exactly as it does the Atom above it. DOM text rather
+ * than SDF glyphs, so no font is fetched and the page's own face is used.
+ */
+function Nameplates() {
+  const { atoms, layout, emphasis, selectedAtomId } = useSphere();
+
+  return (
+    <>
+      {atoms.map((atom) => {
+        const placement = layout[atom.id];
+        if (!placement) return null;
+        const isSelected = atom.id === selectedAtomId;
+        const isDimmed = emphasis.atoms[atom.id] === "dimmed";
+        return (
+          <Html
+            key={atom.id}
+            position={[
+              placement.position[0],
+              placement.position[1] - placement.size - NAMEPLATE_GAP,
+              placement.position[2],
+            ]}
+            center
+            distanceFactor={NAMEPLATE_DISTANCE_FACTOR}
+            // Level with the page itself, so the Dossier and the Owner's
+            // controls always paint over the labels.
+            zIndexRange={[0, 0]}
+            style={{ pointerEvents: "none" }}
+          >
+            <span
+              className="block font-medium whitespace-nowrap transition-[color,opacity] duration-300"
+              style={{
+                fontSize: `${NAMEPLATE_BASE_SIZE + placement.rank * NAMEPLATE_RANK_SIZE}px`,
+                color: isSelected
+                  ? "#828fff"
+                  : isDimmed
+                    ? "#8a8f98"
+                    : "#f7f8f8",
+                opacity: isDimmed ? 0.25 : 0.9,
+              }}
+            >
+              {atom.label}
+            </span>
+          </Html>
         );
       })}
     </>
@@ -775,6 +837,7 @@ export function SphereScene() {
       <SignalTicks />
       <ConnectionHitAreas />
       <AtomNodes />
+      <Nameplates />
       <CameraRig controls={controlsRef} isInteracting={isInteracting} />
       <OrbitControls
         ref={controlsRef}

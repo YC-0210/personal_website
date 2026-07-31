@@ -232,13 +232,17 @@ export class SphereStore {
     return atom ? this.detailOf(atom) : null;
   }
 
-  /** An Atom paired with every Connection leaving it and the Atom it leads to. */
+  /**
+   * An Atom paired with every Connection leaving it and the Atom it leads to,
+   * strongest first — the Dossier leads with the closest knowledge.
+   */
   private detailOf(atom: Atom): AtomDetail {
     const connections: ConnectionDetail[] = [];
     for (const connection of this.connectionsForAtom(atom.id)) {
       const otherAtom = this.getAtom(otherEndOfConnection(connection, atom.id));
       if (otherAtom) connections.push({ connection, otherAtom });
     }
+    connections.sort((a, b) => b.connection.strength - a.connection.strength);
     return { atom, connections };
   }
 
