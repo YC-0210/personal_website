@@ -88,10 +88,10 @@ export function AtomEditor() {
   return (
     <>
       {/*
-        On mobile the detail panel is a bottom sheet, so the controls move to
-        the top edge instead of sitting underneath it.
+        On mobile these ride just above the Compact Bar — the selection they
+        act on is what the bar is showing.
       */}
-      <div className="fixed right-4 bottom-4 flex items-center gap-2 text-sm max-md:top-4 max-md:bottom-auto">
+      <div className="fixed right-4 bottom-4 flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-end gap-2 text-sm max-md:right-3 max-md:bottom-20">
         {selected && !isConfirmingDelete && (
           <>
             <button
