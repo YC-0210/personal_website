@@ -35,3 +35,15 @@ _Avoid_: admin panel, dashboard, CMS.
 **Visitor**:
 Anyone viewing the site who is not the Owner. Visitors can orbit the Sphere, select Atoms, and follow Connections, but cannot modify anything.
 _Avoid_: user, guest.
+
+**Dossier**:
+The full detail view of the selected Atom — its description and every Connection leaving it, each described in terms of the knowledge that links the two Atoms.
+_Avoid_: detail panel, modal, popup.
+
+**Compact Bar**:
+The lean single-line summary of the selected Atom (label, hours, Connection count) shown on small viewports in place of the full Dossier, leaving the Sphere visible. Opening it leads to the Dossier.
+_Avoid_: mini panel, toast, snackbar.
+
+**Nameplate**:
+An Atom's label rendered beside its node in the Sphere, always visible, scaled with Rank and dimmed with the selection's emphasis.
+_Avoid_: tag, tooltip, caption.
