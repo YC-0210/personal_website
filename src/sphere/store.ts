@@ -229,15 +229,36 @@ export class SphereStore {
     const atom = this.state.selectedAtomId
       ? this.getAtom(this.state.selectedAtomId)
       : undefined;
-    if (!atom) return null;
+    return atom ? this.detailOf(atom) : null;
+  }
 
+  /**
+   * An Atom paired with every Connection leaving it and the Atom it leads to,
+   * strongest first — the Dossier leads with the closest knowledge.
+   */
+  private detailOf(atom: Atom): AtomDetail {
     const connections: ConnectionDetail[] = [];
     for (const connection of this.connectionsForAtom(atom.id)) {
       const otherAtom = this.getAtom(otherEndOfConnection(connection, atom.id));
       if (otherAtom) connections.push({ connection, otherAtom });
     }
-
+    connections.sort((a, b) => b.connection.strength - a.connection.strength);
     return { atom, connections };
+  }
+
+  /**
+   * The whole Sphere as the text/list fallback reads it: every Atom, each with
+   * the Connections that touch it and the Atom at their far end, in Rank order
+   * with ties read alphabetically. Screen readers and browsers without WebGL
+   * see this instead of the scene, so it is derived from exactly the same
+   * state the scene draws.
+   */
+  sphereIndex(): AtomDetail[] {
+    return [...this.state.atoms]
+      .sort(
+        (a, b) => b.hoursSpent - a.hoursSpent || a.label.localeCompare(b.label),
+      )
+      .map((atom) => this.detailOf(atom));
   }
 
   /**

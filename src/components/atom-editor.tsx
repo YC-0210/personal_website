@@ -87,7 +87,11 @@ export function AtomEditor() {
 
   return (
     <>
-      <div className="fixed right-4 bottom-4 flex items-center gap-2 text-sm">
+      {/*
+        On mobile these ride just above the Compact Bar — the selection they
+        act on is what the bar is showing.
+      */}
+      <div className="fixed right-4 bottom-4 flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-end gap-2 text-sm max-md:right-3 max-md:bottom-20">
         {selected && !isConfirmingDelete && (
           <>
             <button

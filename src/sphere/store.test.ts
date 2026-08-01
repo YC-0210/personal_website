@@ -417,6 +417,25 @@ describe("SphereStore", () => {
       });
     });
 
+    it("lists Connections strongest first, so the closest knowledge leads", async () => {
+      const weakFirstStore = createSphereStore(
+        new FakeSphereRepository({
+          atoms: [typescript, threeJs, postgres],
+          // Stored weakest-first: the order must come from Strength, not storage.
+          connections: [threeToPostgres, typescriptToThree],
+        }),
+      );
+      await weakFirstStore.load();
+
+      weakFirstStore.selectAtom(threeJs.id);
+
+      expect(
+        weakFirstStore
+          .selectedDetail()
+          ?.connections.map((detail) => detail.connection.id),
+      ).toEqual([typescriptToThree.id, threeToPostgres.id]);
+    });
+
     it("describes the Atom a Connection led to, not the one it left", () => {
       store.selectAtom(typescript.id);
 
