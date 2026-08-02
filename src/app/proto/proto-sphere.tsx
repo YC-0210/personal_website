@@ -55,10 +55,16 @@ export function rankWithCurve(curve: RankCurve): Record<AtomId, AtomRank> {
   return ranked;
 }
 
-/** Today's curve, kept here so a prototype can show it beside a candidate. */
+/** The curve the Sphere used before issue #24 — kept for the round-one page. */
 export const LINEAR_CURVE: RankCurve = (hours, allHours) => {
   const most = Math.max(0, ...allHours);
   return most === 0 ? 0 : hours / most;
+};
+
+/** A · Log, the curve the Owner picked and the one that now ships. */
+export const LOG_CURVE: RankCurve = (hours, allHours) => {
+  const most = Math.max(0, ...allHours);
+  return most === 0 ? 0 : Math.log1p(hours) / Math.log1p(most);
 };
 
 export function useProtoLayout(curve: RankCurve): Record<AtomId, AtomLayout> {
@@ -93,18 +99,32 @@ function neighboursOf(
   return near;
 }
 
+/**
+ * Anything a prototype wants to draw *around* an Atom rather than instead of
+ * it — the orbit rings of issue #24's second round. Rendered in the Atom's
+ * group but outside its scale, so a ring is sized in world units from Rank
+ * rather than inheriting the node's size.
+ */
+export type AtomDecoration = (
+  placement: AtomLayout,
+  index: number,
+  isDimmed: boolean,
+) => React.ReactNode;
+
 function AtomNodes({
   atoms,
   connections,
   layout,
   selection,
   showNameplates,
+  decoration,
 }: {
   atoms: Atom[];
   connections: Connection[];
   layout: Record<AtomId, AtomLayout>;
   selection: ProtoSelection;
   showNameplates: boolean;
+  decoration?: AtomDecoration;
 }) {
   const coreGeometry = useMemo(() => new THREE.SphereGeometry(1, 24, 16), []);
   const shellGeometry = useMemo(() => new THREE.IcosahedronGeometry(1, 2), []);
@@ -112,7 +132,7 @@ function AtomNodes({
 
   return (
     <>
-      {atoms.map((atom) => {
+      {atoms.map((atom, index) => {
         const placement = layout[atom.id];
         if (!placement) return null;
 
@@ -122,6 +142,7 @@ function AtomNodes({
 
         return (
           <group key={atom.id} position={placement.position as THREE.Vector3Tuple}>
+            {decoration?.(placement, index, isDimmed)}
             <group
               scale={scale}
               onClick={(event) => {
@@ -242,6 +263,7 @@ export function ProtoSphere({
   connections = PROTO_CONNECTIONS,
   showNameplates = true,
   distance = 2.4,
+  decoration,
 }: {
   layout: Record<AtomId, AtomLayout>;
   selection: ProtoSelection;
@@ -249,6 +271,7 @@ export function ProtoSphere({
   connections?: Connection[];
   showNameplates?: boolean;
   distance?: number;
+  decoration?: AtomDecoration;
 }) {
   return (
     <Canvas
@@ -268,6 +291,7 @@ export function ProtoSphere({
         layout={layout}
         selection={selection}
         showNameplates={showNameplates}
+        decoration={decoration}
       />
       <OrbitControls
         autoRotate={selection.selectedAtomId === null}

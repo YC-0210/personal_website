@@ -1,10 +1,10 @@
 import type { Atom, AtomId } from "./domain";
 
 /**
- * Rank is what time spent buys an Atom: a bigger node, and later a tighter
- * orbit. It is relative — the Atom with the most hours ranks 1, and everything
- * else is measured against it — so the Sphere reads the same whether the Owner
- * counts in hours or in hundreds of hours.
+ * Rank is what time spent buys an Atom: a bigger node and a tighter orbit. It
+ * is relative — the Atom with the most hours ranks 1, and everything else is
+ * measured against it — so the Sphere reads the same whether the Owner counts
+ * in hours or in hundreds of hours.
  */
 export interface AtomRank {
   /** 0 to 1, relative to the most-invested Atom in the Sphere. */
@@ -26,12 +26,26 @@ function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 
+/**
+ * The chosen curve, from the three tried under ADR-0004: each doubling of hours
+ * buys the same step of Rank.
+ *
+ * A straight `hours / mostHours` made the Sphere unreadable as soon as one Atom
+ * ran away with the hours — everything else compressed against it and a tenfold
+ * difference in the Owner's time rendered as none. On a log curve the towering
+ * Atom stops setting the scale for everyone below it.
+ */
+function rankOf(hoursSpent: number, mostHours: number): number {
+  if (mostHours <= 0) return 0;
+  return Math.log1p(Math.max(0, hoursSpent)) / Math.log1p(mostHours);
+}
+
 export function rankAtoms(atoms: Atom[]): Record<AtomId, AtomRank> {
   const mostHours = Math.max(0, ...atoms.map((atom) => atom.hoursSpent));
 
   const ranked: Record<AtomId, AtomRank> = {};
   for (const atom of atoms) {
-    const rank = mostHours === 0 ? 0 : atom.hoursSpent / mostHours;
+    const rank = rankOf(atom.hoursSpent, mostHours);
     ranked[atom.id] = {
       rank,
       size: lerp(MIN_SIZE, MAX_SIZE, rank),
