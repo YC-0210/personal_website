@@ -70,6 +70,14 @@ export default function Home() {
         </button>
       )}
 
+      {/* ADR-0004 temporary: way into the hero-quote and Rank prototypes. Removed with /proto. */}
+      <a
+        href="/proto"
+        className="border-hairline bg-surface-1 text-ink-subtle fixed bottom-4 left-4 rounded-md border px-3 py-1.5 text-sm font-medium"
+      >
+        Prototypes
+      </a>
+
       {!showList && <AtomDetailPanel />}
       <OwnerAffordance />
       <AtomEditor />
