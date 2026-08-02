@@ -23,7 +23,12 @@ import {
   useProtoSelection,
   type RankCurve,
 } from "../proto-sphere";
-import { ProtoSwitcher, useVariant, type ProtoVariant } from "../proto-switcher";
+import {
+  ProtoNotes,
+  ProtoSwitcher,
+  useVariant,
+  type ProtoVariant,
+} from "../proto-switcher";
 
 /** A · Log. Every doubling of hours buys the same step, so an outlier can't flatten the rest. */
 const LOG_CURVE: RankCurve = (hours, allHours) => {
@@ -184,17 +189,7 @@ function RankPrototypeRoute() {
         selection={selection}
       />
 
-      <aside className="border-hairline bg-surface-1/92 fixed top-4 left-4 z-10 w-72 max-w-[calc(100vw-2rem)] rounded-lg border p-4 backdrop-blur max-md:top-3 max-md:left-3">
-        <p className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px] uppercase">
-          Rank curve
-        </p>
-        <p className="text-ink mt-1 text-[17px] font-medium tracking-[-0.01em]">
-          {variant.name}
-        </p>
-        <p className="text-ink-subtle mt-1 text-xs leading-relaxed">
-          {variant.note}
-        </p>
-
+      <ProtoNotes eyebrow="Rank curve · #24" current={variant}>
         <CurvePlot curve={curve} />
 
         <label className="text-ink-muted mt-3 flex items-center gap-2 text-xs">
@@ -250,7 +245,7 @@ function RankPrototypeRoute() {
               </li>
             ))}
         </ul>
-      </aside>
+      </ProtoNotes>
 
       <ProtoSwitcher variants={VARIANTS} current={variant} />
     </main>

@@ -26,7 +26,12 @@ import {
   useProtoSelection,
   type AtomDecoration,
 } from "../proto-sphere";
-import { ProtoSwitcher, useVariant, type ProtoVariant } from "../proto-switcher";
+import {
+  ProtoNotes,
+  ProtoSwitcher,
+  useVariant,
+  type ProtoVariant,
+} from "../proto-switcher";
 
 const RING_COLOR = "#5e6ad2";
 const RING_BRIGHT = "#828fff";
@@ -196,22 +201,13 @@ function OrbitPrototypeRoute() {
         decoration={DECORATIONS[variant.key]}
       />
 
-      <aside className="border-hairline bg-surface-1/92 fixed top-4 left-4 z-10 w-64 max-w-[calc(100vw-2rem)] rounded-lg border p-4 backdrop-blur">
-        <p className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px] uppercase">
-          Orbit · issue #24
-        </p>
-        <p className="text-ink mt-1 text-[17px] font-medium tracking-[-0.01em]">
-          {variant.name}
-        </p>
-        <p className="text-ink-subtle mt-1 text-xs leading-relaxed">
-          {variant.note}
-        </p>
+      <ProtoNotes eyebrow="Orbit · issue #24" current={variant}>
         <p className="border-hairline text-ink-tertiary mt-3 border-t pt-3 text-xs leading-relaxed">
           Ranked on the log curve you picked, so this is the Sphere as it now
-          ships. Zoom right in on TypeScript and out to Rust to judge whether
-          the ring survives both ends.
+          ships. Pinch in on TypeScript and out to Rust to judge whether the
+          ring survives both ends.
         </p>
-      </aside>
+      </ProtoNotes>
 
       <ProtoSwitcher variants={VARIANTS} current={variant} />
     </main>

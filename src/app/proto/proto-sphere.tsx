@@ -13,8 +13,8 @@
  */
 
 import { Html, OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
 import type { Atom, AtomId, Connection } from "@/sphere/domain";
@@ -319,13 +319,40 @@ function ConnectionLines({
   );
 }
 
+/**
+ * Pull the camera back far enough that the whole Sphere fits, whatever shape
+ * the viewport is.
+ *
+ * A fixed distance is tuned for one aspect ratio and crops on every other. On a
+ * portrait phone the horizontal field of view is less than half the vertical
+ * one, so a distance that frames the Sphere on a laptop cuts the sides off
+ * entirely — which is exactly what the Owner would be judging on their phone.
+ */
+function FitCamera({ radius }: { radius: number }) {
+  const camera = useThree((state) => state.camera);
+  const { width, height } = useThree((state) => state.size);
+
+  useEffect(() => {
+    if (!("fov" in camera)) return;
+    const verticalHalf = (camera.fov * Math.PI) / 360;
+    const horizontalHalf = Math.atan(Math.tan(verticalHalf) * (width / height));
+    camera.position.setLength(
+      radius / Math.sin(Math.min(verticalHalf, horizontalHalf)),
+    );
+    camera.updateProjectionMatrix();
+  }, [camera, radius, width, height]);
+
+  return null;
+}
+
 export function ProtoSphere({
   layout,
   selection,
   atoms = PROTO_ATOMS,
   connections = PROTO_CONNECTIONS,
   showNameplates = true,
-  distance = 2.4,
+  /** Outer orbit (1) plus the largest Atom (0.075) and a little air. */
+  radius = 1.15,
   decoration,
   interior,
   transparent = false,
@@ -335,7 +362,7 @@ export function ProtoSphere({
   atoms?: Atom[];
   connections?: Connection[];
   showNameplates?: boolean;
-  distance?: number;
+  radius?: number;
   decoration?: AtomDecoration;
   interior?: AtomInterior;
   /**
@@ -347,11 +374,12 @@ export function ProtoSphere({
 }) {
   return (
     <Canvas
-      camera={{ position: [0, 0, distance], fov: 50 }}
+      camera={{ position: [0, 0, 2.4], fov: 50 }}
       dpr={[1, 2]}
       onPointerMissed={() => selection.select(null)}
     >
       {!transparent && <color attach="background" args={["#010102"]} />}
+      <FitCamera radius={radius} />
       <ConnectionLines
         connections={connections}
         layout={layout}
@@ -373,7 +401,7 @@ export function ProtoSphere({
         dampingFactor={0.08}
         enablePan={false}
         minDistance={0.4}
-        maxDistance={6}
+        maxDistance={9}
         rotateSpeed={0.6}
       />
     </Canvas>

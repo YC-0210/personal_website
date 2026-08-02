@@ -25,7 +25,12 @@ import {
   useProtoSelection,
   type AtomInterior,
 } from "../proto-sphere";
-import { ProtoSwitcher, useVariant, type ProtoVariant } from "../proto-switcher";
+import {
+  ProtoNotes,
+  ProtoSwitcher,
+  useVariant,
+  type ProtoVariant,
+} from "../proto-switcher";
 
 const BODY_COLOR = "#828fff";
 
@@ -188,22 +193,13 @@ function OrbitInsideRoute() {
         interior={INTERIORS[variant.key]}
       />
 
-      <aside className="border-hairline bg-surface-1/92 fixed top-4 left-4 z-10 w-64 max-w-[calc(100vw-2rem)] rounded-lg border p-4 backdrop-blur">
-        <p className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px] uppercase">
-          Inside the Atom · #24
-        </p>
-        <p className="text-ink mt-1 text-[17px] font-medium tracking-[-0.01em]">
-          {variant.name}
-        </p>
-        <p className="text-ink-subtle mt-1 text-xs leading-relaxed">
-          {variant.note}
-        </p>
+      <ProtoNotes eyebrow="Inside the Atom · #24" current={variant}>
         <p className="border-hairline text-ink-tertiary mt-3 border-t pt-3 text-xs leading-relaxed">
           Nothing leaves the Atom, so the Sphere reads the same at any Atom
-          count. Zoom in on TypeScript, then out to Rust — the question is
+          count. Pinch in on TypeScript, then out to Rust — the question is
           whether Rank still reads once an Atom is only a few pixels wide.
         </p>
-      </aside>
+      </ProtoNotes>
 
       <ProtoSwitcher variants={VARIANTS} current={variant} />
     </main>

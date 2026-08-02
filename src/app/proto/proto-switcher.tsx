@@ -34,6 +34,40 @@ function isTyping(target: EventTarget | null): boolean {
   );
 }
 
+/**
+ * The notes panel each prototype carries. Collapsed by default: on a phone a
+ * fixed 16rem panel covers a third of the Sphere, and the Sphere is the thing
+ * being judged. The variant's name is already in the bar, so this is detail.
+ */
+export function ProtoNotes({
+  eyebrow,
+  current,
+  children,
+}: {
+  eyebrow: string;
+  current: ProtoVariant;
+  children?: React.ReactNode;
+}) {
+  return (
+    <details className="border-hairline bg-surface-1/92 fixed top-3 left-3 z-10 max-w-[calc(100vw-1.5rem)] rounded-lg border backdrop-blur open:w-64">
+      <summary className="cursor-pointer list-none px-3 py-2">
+        <span className="text-ink-tertiary block text-[11px] font-medium tracking-[0.4px] uppercase">
+          {eyebrow}
+        </span>
+        <span className="text-ink block text-sm font-medium">
+          {current.name} <span className="text-ink-tertiary">▾</span>
+        </span>
+      </summary>
+      <div className="px-3 pt-1 pb-3">
+        <p className="text-ink-subtle text-xs leading-relaxed">
+          {current.note}
+        </p>
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export function ProtoSwitcher({
   variants,
   current,
@@ -60,8 +94,14 @@ export function ProtoSwitcher({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [index, router, variants]);
 
-  // A stray merge of a prototype must not be able to ship this bar to a Visitor.
-  if (process.env.NODE_ENV === "production") return null;
+  /*
+    A stray merge of a prototype must not ship this bar to a Visitor — but a
+    Vercel preview *is* a production build, and hiding the bar there would
+    leave no way to switch variants on a phone, which is the whole point of
+    deploying it. So the guard is the deployment, not the build: previews and
+    local dev show it, only the production deployment hides it.
+  */
+  if (process.env.NEXT_PUBLIC_VERCEL_ENV === "production") return null;
 
   const step = (by: number) =>
     router.replace(
@@ -75,7 +115,7 @@ export function ProtoSwitcher({
         type="button"
         aria-label="Previous variant"
         onClick={() => step(-1)}
-        className="grid size-8 shrink-0 place-items-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+        className="grid size-10 shrink-0 place-items-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
       >
         ←
       </button>
@@ -93,7 +133,7 @@ export function ProtoSwitcher({
         type="button"
         aria-label="Next variant"
         onClick={() => step(1)}
-        className="grid size-8 shrink-0 place-items-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+        className="grid size-10 shrink-0 place-items-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
       >
         →
       </button>
