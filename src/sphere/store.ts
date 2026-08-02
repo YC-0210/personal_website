@@ -398,6 +398,15 @@ export class SphereStore {
     }
   }
 
+  /**
+   * PROTOTYPE ONLY (issue #24) — forces Rank/layout to recompute against the
+   * current `prototypeRankCurve` without changing any data. Remove before
+   * merging.
+   */
+  refreshLayout(): void {
+    this.applySphere(this.state.atoms, this.state.connections);
+  }
+
   /** Return to the plain visitor experience on this device. */
   async signOut(): Promise<void> {
     await this.auth.signOut();

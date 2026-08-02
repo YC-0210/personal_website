@@ -1,15 +1,28 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { AtomDetailPanel } from "@/components/atom-detail-panel";
 import { AtomEditor } from "@/components/atom-editor";
 import { ConnectionEditor } from "@/components/connection-editor";
+import {
+  HERO_VARIANTS,
+  HeroQuote,
+} from "@/components/hero-quote-prototype";
 import { OwnerAffordance } from "@/components/owner-affordance";
+import {
+  PrototypeSwitcher,
+  usePrototypeVariant,
+} from "@/components/prototype-switcher";
 import { SphereListView } from "@/components/sphere-list-view";
 import { SphereScene } from "@/components/sphere-scene";
 import { isWebGLSupported } from "@/lib/webgl-support";
-import { useSphere } from "@/sphere/use-sphere";
+import { setPrototypeRankCurve } from "@/sphere/rank";
+import {
+  RANK_CURVE_VARIANTS,
+  curveFor,
+} from "@/sphere/rank-curve-prototype";
+import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
 function statusMessage(
   status: string,
@@ -47,9 +60,24 @@ export default function Home() {
   const [wantsList, setWantsList] = useState(false);
   const showList = wantsList || hasWebGL === false;
 
+  // PROTOTYPE ONLY (issues #23, #24) — drop both hooks, the effect below,
+  // and the two <PrototypeSwitcher>s once each direction is chosen.
+  const hero = usePrototypeVariant("hero", HERO_VARIANTS);
+  const curve = usePrototypeVariant("curve", RANK_CURVE_VARIANTS);
+
+  useEffect(() => {
+    setPrototypeRankCurve(curveFor(curve.current));
+    getSphereStore().refreshLayout();
+    // Only `curve.current` (a primitive) should retrigger this — `curve` itself
+    // is a fresh object every render, so including it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curve.current]);
+
   return (
     <main className="fixed inset-0 overflow-hidden">
       <h1 className="sr-only">Knowledge Sphere</h1>
+
+      <HeroQuote variant={hero.current} />
 
       {hasWebGL && !showList && <SphereScene />}
       {showList && <SphereListView />}
@@ -77,6 +105,21 @@ export default function Home() {
       <p role="status" className="sr-only">
         {statusMessage(status, atoms.length, error)}
       </p>
+
+      <PrototypeSwitcher
+        paramName="hero"
+        variants={HERO_VARIANTS}
+        current={hero.current}
+        cycle={hero.cycle}
+        side="left"
+      />
+      <PrototypeSwitcher
+        paramName="curve"
+        variants={RANK_CURVE_VARIANTS}
+        current={curve.current}
+        cycle={curve.cycle}
+        side="right"
+      />
     </main>
   );
 }

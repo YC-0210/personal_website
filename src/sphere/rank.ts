@@ -26,12 +26,27 @@ function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 
+/**
+ * PROTOTYPE ONLY (issue #24) — lets the rank-curve prototype swap the ratio
+ * -> rank mapping at runtime without threading a param through every
+ * `applySphere` call site. Defaults to identity, i.e. today's linear
+ * behaviour. Remove this and the `curve` param below before merging; the
+ * winning direction gets its curve hard-coded, not swappable.
+ */
+export let prototypeRankCurve: (ratio: number) => number = (ratio) => ratio;
+
+/** PROTOTYPE ONLY (issue #24) — the only way to reassign the curve from outside this module. */
+export function setPrototypeRankCurve(curve: (ratio: number) => number): void {
+  prototypeRankCurve = curve;
+}
+
 export function rankAtoms(atoms: Atom[]): Record<AtomId, AtomRank> {
   const mostHours = Math.max(0, ...atoms.map((atom) => atom.hoursSpent));
 
   const ranked: Record<AtomId, AtomRank> = {};
   for (const atom of atoms) {
-    const rank = mostHours === 0 ? 0 : atom.hoursSpent / mostHours;
+    const ratio = mostHours === 0 ? 0 : atom.hoursSpent / mostHours;
+    const rank = mostHours === 0 ? 0 : prototypeRankCurve(ratio);
     ranked[atom.id] = {
       rank,
       size: lerp(MIN_SIZE, MAX_SIZE, rank),
