@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { Connection } from "@/sphere/domain";
+import type { Connection, ConnectionId } from "@/sphere/domain";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
 /** What the store's Strength scale allows, and a step the Owner can feel. */
@@ -25,6 +25,12 @@ export function ConnectionEditor() {
   const store = getSphereStore();
 
   const [editing, setEditing] = useState<Connection | null>(null);
+  /**
+   * The Connection a delete is pending on, rather than a bare flag — the same
+   * two-step `AtomEditor` uses, so selecting elsewhere takes the confirmation
+   * away on its own and no Connection is ever one click from gone.
+   */
+  const [deletingId, setDeletingId] = useState<ConnectionId | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const strengthRef = useRef<HTMLInputElement>(null);
 
@@ -55,6 +61,7 @@ export function ConnectionEditor() {
     const details = {
       strength: Number(form.get("strength") ?? 0),
       description: String(form.get("description") ?? "").trim(),
+      externalLink: String(form.get("externalLink") ?? "").trim(),
     };
 
     setIsSaving(true);
@@ -76,6 +83,7 @@ export function ConnectionEditor() {
     setIsSaving(true);
     try {
       await store.deleteConnection(connection.id);
+      setDeletingId(null);
     } catch {
       // Same as above.
     } finally {
@@ -101,27 +109,51 @@ export function ConnectionEditor() {
               key={connection.id}
               className="hover:bg-surface-2 flex items-center gap-2 rounded-md px-2 py-1.5"
             >
-              <span className="text-ink flex-1 truncate">
-                {farAtomLabel(connection)}
-              </span>
-              <span className="text-ink-tertiary tabular-nums">
-                {connection.strength.toFixed(2)}
-              </span>
-              <button
-                type="button"
-                onClick={() => setEditing(connection)}
-                className="text-ink-subtle hover:text-ink font-medium"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={() => void handleDelete(connection)}
-                className="text-ink-subtle hover:text-ink font-medium disabled:opacity-60"
-              >
-                Delete
-              </button>
+              {deletingId === connection.id ? (
+                <>
+                  <span className="text-ink-subtle flex-1 truncate">
+                    Delete the Connection to “{farAtomLabel(connection)}”?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDeletingId(null)}
+                    className="text-ink font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => void handleDelete(connection)}
+                    className="bg-primary text-on-primary hover:bg-primary-hover rounded-md px-2 py-0.5 font-medium disabled:opacity-60"
+                  >
+                    Delete
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-ink flex-1 truncate">
+                    {farAtomLabel(connection)}
+                  </span>
+                  <span className="text-ink-tertiary tabular-nums">
+                    {connection.strength.toFixed(2)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(connection)}
+                    className="text-ink-subtle hover:text-ink font-medium"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeletingId(connection.id)}
+                    className="text-ink-subtle hover:text-ink font-medium"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -213,8 +245,26 @@ export function ConnectionEditor() {
               name="description"
               rows={3}
               defaultValue={editing?.description ?? ""}
-              className="border-hairline bg-surface-2 text-ink mb-4 w-full resize-none rounded-md border px-3 py-2 text-sm"
+              className="border-hairline bg-surface-2 text-ink mb-3 w-full resize-none rounded-md border px-3 py-2 text-sm"
             />
+
+            <label
+              className="text-ink-subtle mb-1 block text-xs"
+              htmlFor="connection-external-link"
+            >
+              External Link
+            </label>
+            <input
+              id="connection-external-link"
+              name="externalLink"
+              type="url"
+              placeholder="https://…"
+              defaultValue={editing?.externalLink ?? ""}
+              className="border-hairline bg-surface-2 text-ink mb-1 w-full rounded-md border px-3 py-2 text-sm"
+            />
+            <p className="text-ink-tertiary mb-4 text-xs">
+              One of these two is required — that is the Explanation.
+            </p>
 
             {writeError && (
               <p role="alert" className="text-ink-muted mb-3 text-xs">

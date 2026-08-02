@@ -89,6 +89,17 @@ export function SphereListView() {
                       <p className="text-ink-subtle mt-0.5 text-xs leading-normal">
                         {connection.description}
                       </p>
+                      {/* The other half of the Explanation. */}
+                      {connection.externalLink && (
+                        <a
+                          href={connection.externalLink}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="text-primary-hover mt-0.5 inline-block text-xs underline-offset-4 hover:underline"
+                        >
+                          {connection.externalLink} ↗
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>

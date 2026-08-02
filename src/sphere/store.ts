@@ -306,6 +306,8 @@ export class SphereStore {
    */
   async addConnection(draft: ConnectionDraft): Promise<void> {
     await this.write(async () => {
+      requireExplanation(draft);
+
       // Connections are undirected, so A-B and B-A are the same Connection. The
       // schema enforces that with a unique index on the canonically-ordered
       // pair; catching it here turns a constraint name into a sentence.
@@ -357,6 +359,7 @@ export class SphereStore {
     draft: ConnectionDraft,
   ): Promise<void> {
     await this.write(async () => {
+      requireExplanation(draft);
       const saved = await this.repository.updateConnection(connectionId, draft);
       this.applySphere(
         this.state.atoms,
@@ -512,6 +515,41 @@ export class SphereStore {
   private setState(patch: Partial<SphereState>): void {
     this.state = Object.freeze({ ...this.state, ...patch });
     for (const listener of this.listeners) listener(this.state);
+  }
+}
+
+/**
+ * A Connection has to say *why* the two Atoms relate — that written description
+ * or a link out to the thing that connects them is the Explanation, and a
+ * Connection without one is a line with no knowledge on it.
+ */
+function requireExplanation(draft: ConnectionDraft): void {
+  const externalLink = (draft.externalLink ?? "").trim();
+
+  if (draft.description.trim() === "" && externalLink === "") {
+    throw new Error(
+      "A Connection needs an Explanation: a description, an External Link, or both.",
+    );
+  }
+
+  if (externalLink !== "" && !isHttpUrl(externalLink)) {
+    throw new Error(
+      "That External Link is not a URL. It needs to start http:// or https://.",
+    );
+  }
+}
+
+/**
+ * Anything the browser will actually follow. `URL` does the parsing, and the
+ * scheme check is what stops `javascript:` and `mailto:` — the Dossier renders
+ * this as a link a Visitor can click.
+ */
+function isHttpUrl(candidate: string): boolean {
+  try {
+    const { protocol } = new URL(candidate);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
   }
 }
 

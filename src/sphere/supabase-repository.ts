@@ -14,7 +14,7 @@ import type { SphereRepository } from "./repository";
 
 const ATOM_COLUMNS = "id, label, description, hours_spent";
 const CONNECTION_COLUMNS =
-  "id, from_atom_id, to_atom_id, strength, description";
+  "id, from_atom_id, to_atom_id, strength, description, external_link";
 
 interface AtomRow {
   id: string;
@@ -29,6 +29,7 @@ interface ConnectionRow {
   to_atom_id: string;
   strength: number | string;
   description: string;
+  external_link: string | null;
 }
 
 function toAtom(row: AtomRow): Atom {
@@ -54,6 +55,8 @@ function fromConnectionDraft(draft: ConnectionDraft) {
     to_atom_id: draft.toAtomId,
     strength: draft.strength,
     description: draft.description,
+    // The column is nullable, and "no link" is an absence rather than a blank.
+    external_link: draft.externalLink?.trim() || null,
   };
 }
 
@@ -64,6 +67,7 @@ function toConnection(row: ConnectionRow): Connection {
     toAtomId: row.to_atom_id,
     strength: Number(row.strength),
     description: row.description,
+    ...(row.external_link ? { externalLink: row.external_link } : {}),
   };
 }
 
