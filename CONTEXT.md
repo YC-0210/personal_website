@@ -9,8 +9,16 @@ A single knowledge point, rendered as a node floating around the Sphere. Has a l
 _Avoid_: node, skill, entry, topic.
 
 **Connection**:
-A weighted, undirected link between two Atoms. Carries a Strength (0–1) and a description of the relationship between them.
+A weighted, undirected link between two Atoms. Carries a Strength (0–1) and an Explanation of the relationship between them.
 _Avoid_: edge, link, relationship.
+
+**Explanation**:
+What a Connection carries to justify itself: a written description, an External Link, or both. At least one of the two is required — a Connection cannot be saved with neither.
+_Avoid_: notes, summary.
+
+**External Link**:
+A URL on a Connection's Explanation, pointing at outside material (an article, a paper, a reference) that explains how the two Atoms relate. Distinct from the in-app link between an Atom's Dossier and an Article.
+_Avoid_: url (as a field label facing the Owner — `externalLink` is fine as the code identifier).
 
 **Strength**:
 A 0–1 value on a Connection describing how strongly two Atoms relate to each other.
