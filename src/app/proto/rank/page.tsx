@@ -12,7 +12,7 @@
  * the baseline and watch the whole Sphere collapse into the outer shell.
  */
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 
 import { layoutSphere } from "@/sphere/layout";
 
@@ -111,7 +111,16 @@ function CurvePlot({ curve }: { curve: RankCurve }) {
   );
 }
 
+/** `useSearchParams` needs a boundary to bail out of prerendering behind. */
 export default function RankPrototypes() {
+  return (
+    <Suspense fallback={null}>
+      <RankPrototypeRoute />
+    </Suspense>
+  );
+}
+
+function RankPrototypeRoute() {
   const variant = useVariant(VARIANTS);
   const selection = useProtoSelection();
   const [withOutlier, setWithOutlier] = useState(false);

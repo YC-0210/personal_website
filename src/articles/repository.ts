@@ -1,0 +1,27 @@
+import type { Article, ArticleDraft, ArticleId } from "./domain";
+
+/**
+ * Persistence seam for the Article store, the same shape the Sphere's
+ * repository has: the store never talks to Supabase directly, writes return
+ * the saved record, and the tests run against an in-memory fake.
+ *
+ * `loadArticles` returns whatever the caller is allowed to read — a Visitor
+ * sees only live Articles, the Owner sees the Trash as well. That rule is the
+ * database's (RLS), not the store's; the store only sorts what arrives.
+ */
+export interface ArticleRepository {
+  loadArticles(): Promise<Article[]>;
+
+  createArticle(draft: ArticleDraft): Promise<Article>;
+
+  updateArticle(articleId: ArticleId, draft: ArticleDraft): Promise<Article>;
+
+  /** Move an Article to the Trash. The row stays; `deletedAt` is stamped. */
+  trashArticle(articleId: ArticleId): Promise<Article>;
+
+  /** Take an Article back out of the Trash. */
+  restoreArticle(articleId: ArticleId): Promise<Article>;
+
+  /** Remove the row for good. There is nothing after this. */
+  deleteArticleForever(articleId: ArticleId): Promise<void>;
+}

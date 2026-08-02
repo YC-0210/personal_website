@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 
 import { AtomDetailPanel } from "@/components/atom-detail-panel";
@@ -69,6 +70,14 @@ export default function Home() {
           {showList ? "Sphere view" : "List view"}
         </button>
       )}
+
+      {/* The way off the Sphere and into the writing. */}
+      <Link
+        href="/articles"
+        className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 fixed top-4 right-4 rounded-md border px-3 py-1.5 text-sm font-medium max-md:top-auto max-md:bottom-32"
+      >
+        Articles
+      </Link>
 
       {/* ADR-0004 temporary: way into the hero-quote and Rank prototypes. Removed with /proto. */}
       <a

@@ -12,6 +12,8 @@
  * so a banner that collides with them is visible here rather than in review.
  */
 
+import { Suspense } from "react";
+
 import {
   ProtoSphere,
   useProtoLayout,
@@ -118,7 +120,16 @@ function VariantC() {
   );
 }
 
+/** `useSearchParams` needs a boundary to bail out of prerendering behind. */
 export default function HeroPrototypes() {
+  return (
+    <Suspense fallback={null}>
+      <HeroPrototypeRoute />
+    </Suspense>
+  );
+}
+
+function HeroPrototypeRoute() {
   const variant = useVariant(VARIANTS);
   const layout = useProtoLayout(LINEAR_CURVE);
   const selection = useProtoSelection();
