@@ -13,8 +13,8 @@
  */
 
 import { Html, OrbitControls } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import { useMemo, useState } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
 import type { Atom, AtomId, Connection } from "@/sphere/domain";
@@ -111,6 +111,84 @@ export type AtomDecoration = (
   isDimmed: boolean,
 ) => React.ReactNode;
 
+/**
+ * How a prototype may reach *inside* the Lattice Atom — issue #24's third
+ * round, after rings drawn around the Atoms made the Sphere read as clutter.
+ *
+ * `interior` renders within the Atom's own scale, so unit 1 is the wireframe
+ * shell's surface and nothing can escape the Atom's silhouette. `coreScale`
+ * and `shellSpin` reshape the two pieces the Atom is already made of rather
+ * than adding a third.
+ */
+export interface AtomInterior {
+  render?: (placement: AtomLayout, index: number, isDimmed: boolean) => React.ReactNode;
+  /** Radius of the solid core, as a fraction of the shell. Default 0.5. */
+  coreScale?: (placement: AtomLayout) => number;
+  /** Radians per second the wireframe shell turns. Default 0 (still). */
+  shellSpin?: (placement: AtomLayout) => number;
+}
+
+/** The Lattice Atom: a solid core inside a wireframe shell that may turn. */
+function AtomNode({
+  placement,
+  index,
+  isSelected,
+  isDimmed,
+  onSelect,
+  coreGeometry,
+  shellGeometry,
+  interior,
+}: {
+  placement: AtomLayout;
+  index: number;
+  isSelected: boolean;
+  isDimmed: boolean;
+  onSelect: () => void;
+  coreGeometry: THREE.SphereGeometry;
+  shellGeometry: THREE.IcosahedronGeometry;
+  interior?: AtomInterior;
+}) {
+  const shell = useRef<THREE.Mesh>(null);
+  const spin = interior?.shellSpin?.(placement) ?? 0;
+  const coreScale = interior?.coreScale?.(placement) ?? 0.5;
+  const scale = placement.size * (isDimmed ? 0.45 : isSelected ? 1.15 : 1);
+
+  useFrame((_, delta) => {
+    if (shell.current && spin !== 0) {
+      shell.current.rotation.y += spin * delta;
+      shell.current.rotation.x += spin * delta * 0.4;
+    }
+  });
+
+  return (
+    <group
+      scale={scale}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
+    >
+      <mesh geometry={coreGeometry} scale={coreScale}>
+        <meshBasicMaterial
+          color={isSelected ? SELECTED_COLOR : isDimmed ? DIM_COLOR : ATOM_COLOR}
+          transparent
+          opacity={isDimmed ? 0.3 : 1}
+        />
+      </mesh>
+      <mesh ref={shell} geometry={shellGeometry}>
+        <meshBasicMaterial
+          color={isSelected ? SELECTED_COLOR : SHELL_COLOR}
+          wireframe
+          transparent
+          opacity={isDimmed ? 0.12 : 0.5}
+          depthWrite={false}
+        />
+      </mesh>
+      {interior?.render?.(placement, index, isDimmed)}
+    </group>
+  );
+}
+
 function AtomNodes({
   atoms,
   connections,
@@ -118,6 +196,7 @@ function AtomNodes({
   selection,
   showNameplates,
   decoration,
+  interior,
 }: {
   atoms: Atom[];
   connections: Connection[];
@@ -125,6 +204,7 @@ function AtomNodes({
   selection: ProtoSelection;
   showNameplates: boolean;
   decoration?: AtomDecoration;
+  interior?: AtomInterior;
 }) {
   const coreGeometry = useMemo(() => new THREE.SphereGeometry(1, 24, 16), []);
   const shellGeometry = useMemo(() => new THREE.IcosahedronGeometry(1, 2), []);
@@ -138,37 +218,20 @@ function AtomNodes({
 
         const isSelected = atom.id === selection.selectedAtomId;
         const isDimmed = selection.selectedAtomId !== null && !near.has(atom.id);
-        const scale = placement.size * (isDimmed ? 0.45 : isSelected ? 1.15 : 1);
 
         return (
           <group key={atom.id} position={placement.position as THREE.Vector3Tuple}>
             {decoration?.(placement, index, isDimmed)}
-            <group
-              scale={scale}
-              onClick={(event) => {
-                event.stopPropagation();
-                selection.select(atom.id);
-              }}
-            >
-              <mesh geometry={coreGeometry} scale={0.5}>
-                <meshBasicMaterial
-                  color={
-                    isSelected ? SELECTED_COLOR : isDimmed ? DIM_COLOR : ATOM_COLOR
-                  }
-                  transparent
-                  opacity={isDimmed ? 0.3 : 1}
-                />
-              </mesh>
-              <mesh geometry={shellGeometry}>
-                <meshBasicMaterial
-                  color={isSelected ? SELECTED_COLOR : SHELL_COLOR}
-                  wireframe
-                  transparent
-                  opacity={isDimmed ? 0.12 : 0.5}
-                  depthWrite={false}
-                />
-              </mesh>
-            </group>
+            <AtomNode
+              placement={placement}
+              index={index}
+              isSelected={isSelected}
+              isDimmed={isDimmed}
+              onSelect={() => selection.select(atom.id)}
+              coreGeometry={coreGeometry}
+              shellGeometry={shellGeometry}
+              interior={interior}
+            />
 
             {showNameplates && (
               <Html
@@ -264,6 +327,8 @@ export function ProtoSphere({
   showNameplates = true,
   distance = 2.4,
   decoration,
+  interior,
+  transparent = false,
 }: {
   layout: Record<AtomId, AtomLayout>;
   selection: ProtoSelection;
@@ -272,6 +337,13 @@ export function ProtoSphere({
   showNameplates?: boolean;
   distance?: number;
   decoration?: AtomDecoration;
+  interior?: AtomInterior;
+  /**
+   * Leave the canvas unpainted. A scaled-down Canvas that paints its own
+   * background shows as a lighter rectangle against the page — visible in the
+   * Arrival handoff, where the Sphere starts small and far off.
+   */
+  transparent?: boolean;
 }) {
   return (
     <Canvas
@@ -279,7 +351,7 @@ export function ProtoSphere({
       dpr={[1, 2]}
       onPointerMissed={() => selection.select(null)}
     >
-      <color attach="background" args={["#010102"]} />
+      {!transparent && <color attach="background" args={["#010102"]} />}
       <ConnectionLines
         connections={connections}
         layout={layout}
@@ -292,6 +364,7 @@ export function ProtoSphere({
         selection={selection}
         showNameplates={showNameplates}
         decoration={decoration}
+        interior={interior}
       />
       <OrbitControls
         autoRotate={selection.selectedAtomId === null}

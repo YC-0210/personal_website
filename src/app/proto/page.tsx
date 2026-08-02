@@ -4,22 +4,36 @@ import Link from "next/link";
 
 const OPEN = [
   {
-    href: "/proto/quote?variant=A",
-    issue: "Issue #23 · round two",
-    name: "Quote section · three directions",
+    href: "/proto/overture?variant=A",
+    issue: "Issue #23 · round three",
+    name: "Overture · three scroll handoffs",
     description:
-      "The quote in its own section, never over the Sphere. A gives it the first screen alone and puts the Sphere on the next; B sets it beside the Sphere in a column on one screen; C runs it as a quiet strip under the Sphere, sized like a footnote. Drawn from established pull-quote practice rather than invented — see the notes at the top of the file.",
+      "Overture's typography is settled and identical in all three; what differs is what the scroll between the quote and the Sphere does. A has the quote recede behind the Sphere's panel, B opens the Sphere through a widening aperture, C brings the Sphere toward you from depth. Each is a named scroll-driven pattern rather than an invented one.",
   },
   {
-    href: "/proto/orbit?variant=A",
-    issue: "Issue #24 · round two",
-    name: "Orbit rings · three directions",
+    href: "/proto/orbit-inside?variant=A",
+    issue: "Issue #24 · round three",
+    name: "Inside the Atom · three directions",
     description:
-      "A visible orbit around each Atom, so Rank is something you can see rather than a size to compare across the scene. A is one camera-facing ring, B a tilted ring with a body running round it, C a countable set of rings. All on the log curve, which now ships.",
+      "Rings drawn around the Atoms cluttered the scene, so the motion moves inside the Lattice Atom and nothing leaves its silhouette. A is a body circling between core and shell, B adds no geometry at all and carries Rank in the shell's spin and the core's fill, C sets counter-turning bands inside the shell.",
   },
 ];
 
 const SETTLED = [
+  {
+    href: "/proto/quote?variant=A",
+    issue: "Issue #23 · round two",
+    name: "Quote section — settled: A · Overture",
+    description:
+      "The quote takes the first screen alone and the Sphere the next. Round three is about the scroll between them.",
+  },
+  {
+    href: "/proto/orbit?variant=A",
+    issue: "Issue #24 · round two",
+    name: "Orbit rings — rejected",
+    description:
+      "Eighteen rings drawn around eighteen Atoms read as clutter rather than as Rank. That is what round three moves inside the Atom.",
+  },
   {
     href: "/proto/rank?variant=A",
     issue: "Issue #24 · round one",
