@@ -44,6 +44,18 @@ _Avoid_: admin panel, dashboard, CMS.
 Anyone viewing the site who is not the Owner. Visitors can orbit the Sphere, select Atoms, and follow Connections, but cannot modify anything.
 _Avoid_: user, guest.
 
+**Article**:
+A piece of long-form writing the Owner publishes, persisted and live-edited the same way Atoms and Connections are — no separate draft/publish step. Deleting one marks it for the Trash rather than removing it outright; see Trash.
+_Avoid_: post, blog entry, page.
+
+**Bonding**:
+A link from an Article to one of the Atoms it discusses, carrying a required Name describing how that specific Atom feeds into that specific Article (e.g. "How classical physics connects to economics"). One Article can hold a Bonding to several Atoms, each with its own Name; one Atom can be the subject of Bondings from several Articles.
+_Avoid_: citation, reference, mention, link.
+
+**Trash**:
+Where a deleted Article goes instead of being removed outright — recoverable by the Owner until a separate, explicit permanent-delete action. Exists because Articles, unlike Atoms and Connections, have no version history to fall back on.
+_Avoid_: recycle bin, archive.
+
 **Dossier**:
 The full detail view of the selected Atom — its description and every Connection leaving it, each described in terms of the knowledge that links the two Atoms.
 _Avoid_: detail panel, modal, popup.
