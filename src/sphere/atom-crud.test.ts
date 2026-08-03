@@ -60,6 +60,8 @@ describe("Owner Atom CRUD", () => {
   it("lays the new Atom out and re-Ranks the Sphere around it, without reloading", async () => {
     const { repository, store } = await ownerStore();
     const loadsBefore = repository.loadCount;
+    // The incumbent holds the top Rank until something outranks it.
+    expect(store.getState().layout[typescript.id].rank).toBe(1);
 
     // Twice the hours of the Atom that held the top Rank, so if Rank did not
     // recompute the incumbent would still be the biggest.
@@ -73,9 +75,14 @@ describe("Owner Atom CRUD", () => {
     const postgres = atoms.find((atom) => atom.label === "Postgres")!;
     expect(layout[postgres.id]).toBeDefined();
     expect(layout[postgres.id].rank).toBe(1);
-    expect(layout[typescript.id].rank).toBe(0.5);
+    // The incumbent was demoted by the newcomer rather than left where it was.
+    expect(layout[typescript.id].rank).toBeLessThan(1);
+    expect(layout[typescript.id].rank).toBeGreaterThan(0);
     expect(layout[postgres.id].size).toBeGreaterThan(
       layout[typescript.id].size,
+    );
+    expect(layout[postgres.id].orbitRadius).toBeLessThan(
+      layout[typescript.id].orbitRadius,
     );
     expect(repository.loadCount).toBe(loadsBefore);
   });
@@ -104,8 +111,12 @@ describe("Owner Atom CRUD", () => {
     );
     expect(edited.hoursSpent).toBe(800);
     expect(store.getState().atoms).toHaveLength(2);
+    // The edited Atom overtook the one that used to hold the top Rank.
     expect(store.getState().layout[three.id].rank).toBe(1);
-    expect(store.getState().layout[typescript.id].rank).toBe(0.5);
+    expect(store.getState().layout[typescript.id].rank).toBeLessThan(1);
+    expect(store.getState().layout[three.id].size).toBeGreaterThan(
+      store.getState().layout[typescript.id].size,
+    );
     expect(repository.loadCount).toBe(loadsBefore);
   });
 

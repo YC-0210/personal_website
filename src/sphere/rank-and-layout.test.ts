@@ -30,6 +30,31 @@ describe("Rank", () => {
 
     expect(layout.deep.orbitRadius).toBeLessThan(layout.shallow.orbitRadius);
   });
+
+  /**
+   * The bug issue #24 is about: one towering Atom used to flatten everything
+   * else against it. Under the old `hours / mostHours` lerp, 100 hours and 1000
+   * hours next to a 10,000-hour Atom both landed within a rounding error of the
+   * smallest size and the outer shell — an order of magnitude of the Owner's
+   * time, rendered as no difference at all.
+   */
+  it("keeps an order of magnitude readable even beside a towering Atom", async () => {
+    const store = await sphereOf([
+      atom("towering", 10_000),
+      atom("deep", 1000),
+      atom("modest", 100),
+    ]);
+
+    const { layout } = store.getState();
+
+    // The size range is 0.055 wide and the orbit range 0.45. A tenfold
+    // difference in hours has to buy a visible slice of each; the linear lerp
+    // gave these two 0.005 of size and 0.04 of orbit, which reads as identical.
+    expect(layout.deep.size - layout.modest.size).toBeGreaterThan(0.01);
+    expect(layout.modest.orbitRadius - layout.deep.orbitRadius).toBeGreaterThan(
+      0.08,
+    );
+  });
 });
 
 type Vec3 = readonly [number, number, number];

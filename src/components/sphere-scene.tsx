@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
+import { moonOrbit } from "@/sphere/atom-moon";
 import type { AtomId, ConnectionId } from "@/sphere/domain";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -54,6 +55,15 @@ const SELECTED_SCALE = 1.15;
  * own curvature is what keeps the Atom reading as 3D at any zoom.
  */
 const LATTICE_CORE_SCALE = 0.5;
+
+/**
+ * The moon: a small body orbiting inside the shell, from the third ADR-0004
+ * round on issue #24. Its radius and speed come from Rank, so time spent reads
+ * as motion you can watch rather than a size to compare across the scene. It is
+ * bounded by the Atom by construction — see `atom-moon.ts` for why that matters.
+ */
+const MOON_SIZE = 0.13;
+const MOON_COLOR = new THREE.Color("#828fff");
 const SHELL_OPACITY = 0.5;
 const SHELL_SELECTED_OPACITY = 0.85;
 const SHELL_DIM_OPACITY = 0.12;
@@ -231,6 +241,19 @@ function AtomNodes() {
           state.clock.elapsedTime *
             (SHELL_SPIN_BASE + (index % 5) * SHELL_SPIN_STEP);
       }
+
+      const moon = node.getObjectByName("moon") as THREE.Mesh | undefined;
+      if (moon) {
+        const { radius, speed } = moonOrbit(placement.rank);
+        // Reduced motion holds the moon at a fixed point on its orbit: the
+        // radius still carries Rank, it just stops travelling.
+        const angle = reducedMotion ? index : state.clock.elapsedTime * speed + index;
+        moon.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+
+        const moonMaterial = moon.material as THREE.MeshBasicMaterial;
+        const moonOpacity = isDimmed ? DIM_OPACITY : 1;
+        moonMaterial.opacity += (moonOpacity - moonMaterial.opacity) * step;
+      }
     });
   });
 
@@ -258,6 +281,11 @@ function AtomNodes() {
             <mesh name="core" geometry={coreGeometry} scale={LATTICE_CORE_SCALE}>
               <meshBasicMaterial color={ATOM_COLOR} transparent />
             </mesh>
+            <group rotation={[Math.PI / 2.4 + (index % 4) * 0.2, (index % 6) * 0.5, 0]}>
+              <mesh name="moon" geometry={coreGeometry} scale={MOON_SIZE}>
+                <meshBasicMaterial color={MOON_COLOR} transparent />
+              </mesh>
+            </group>
             <mesh
               name="shell"
               geometry={shellGeometry}

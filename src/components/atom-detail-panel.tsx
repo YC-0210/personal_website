@@ -60,30 +60,46 @@ export function AtomDetailPanel() {
   const connectionRows = (
     <div className="mt-2 flex flex-col">
       {shown.connections.map(({ connection, otherAtom }) => (
-        <button
-          key={connection.id}
-          type="button"
-          onClick={() => store.selectViaConnection(connection.id)}
-          className="border-hairline hover:bg-primary-hover/5 flex flex-col gap-1 border-t py-3 text-left"
-        >
-          <span className="text-ink-muted text-sm leading-relaxed">
-            {connection.description}
-          </span>
-          <span className="flex items-center justify-between gap-3">
-            <span className="text-ink-subtle text-xs">
-              → {otherAtom.label}
+        <div key={connection.id} className="border-hairline border-t">
+          <button
+            type="button"
+            onClick={() => store.selectViaConnection(connection.id)}
+            className="hover:bg-primary-hover/5 flex w-full flex-col gap-1 py-3 text-left"
+          >
+            <span className="text-ink-muted text-sm leading-relaxed">
+              {connection.description}
             </span>
-            <span
-              aria-label={`Strength ${Math.round(connection.strength * 100)} of 100`}
-              className="bg-hairline-strong h-0.5 w-9 flex-none overflow-hidden rounded-full"
-            >
+            <span className="flex items-center justify-between gap-3">
+              <span className="text-ink-subtle text-xs">
+                → {otherAtom.label}
+              </span>
               <span
-                className="bg-primary-hover block h-full"
-                style={{ width: `${Math.round(connection.strength * 100)}%` }}
-              />
+                aria-label={`Strength ${Math.round(connection.strength * 100)} of 100`}
+                className="bg-hairline-strong h-0.5 w-9 flex-none overflow-hidden rounded-full"
+              >
+                <span
+                  className="bg-primary-hover block h-full"
+                  style={{ width: `${Math.round(connection.strength * 100)}%` }}
+                />
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+
+          {/*
+            The other half of the Explanation. A sibling of the follow button
+            rather than inside it — a link nested in a button is neither.
+          */}
+          {connection.externalLink && (
+            <a
+              href={connection.externalLink}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-primary-hover mb-3 block truncate text-xs hover:underline"
+            >
+              {connection.externalLink} ↗
+            </a>
+          )}
+        </div>
       ))}
     </div>
   );

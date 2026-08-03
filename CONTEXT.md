@@ -47,3 +47,25 @@ _Avoid_: mini panel, toast, snackbar.
 **Nameplate**:
 An Atom's label rendered beside its node in the Sphere, always visible, scaled with Rank and dimmed with the selection's emphasis.
 _Avoid_: tag, tooltip, caption.
+
+**Explanation**:
+What a Connection says about the two Atoms it joins — a written description, an
+External Link, or both. A Connection cannot be saved without one; a line with no
+knowledge on it is not a Connection.
+_Avoid_: note, comment, caption.
+
+**External Link**:
+The linked half of an Explanation: a URL to the thing that connects two Atoms —
+a paper, a repository, a post. Validated as URL-shaped before it saves.
+_Avoid_: reference, source, citation.
+
+**Article**:
+A piece of the Owner's writing, published the moment it is saved. Lives on the
+Articles page, apart from the Sphere.
+_Avoid_: post, blog, entry, note.
+
+**Trash**:
+Where a deleted Article waits. Deleting an Article marks it rather than removing
+it — it leaves the public list at once, and the Owner can restore it or delete
+it for good.
+_Avoid_: archive, bin, recycle.

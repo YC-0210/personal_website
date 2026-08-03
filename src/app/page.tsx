@@ -1,10 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 
 import { AtomDetailPanel } from "@/components/atom-detail-panel";
 import { AtomEditor } from "@/components/atom-editor";
 import { ConnectionEditor } from "@/components/connection-editor";
+import {
+  HeroQuote,
+  ScrollCue,
+  useHandoffProgress,
+} from "@/components/hero-quote";
 import { OwnerAffordance } from "@/components/owner-affordance";
 import { SphereListView } from "@/components/sphere-list-view";
 import { SphereScene } from "@/components/sphere-scene";
@@ -30,6 +36,12 @@ function subscribeToNothing(): () => void {
   return () => {};
 }
 
+/**
+ * Past this much of the handoff the Sphere owns the screen, so its controls
+ * belong on it. Below it they would be floating over the quote.
+ */
+const SPHERE_ENGAGED_AT = 0.6;
+
 export default function Home() {
   const { status, atoms, error } = useSphere();
 
@@ -47,33 +59,64 @@ export default function Home() {
   const [wantsList, setWantsList] = useState(false);
   const showList = wantsList || hasWebGL === false;
 
+  const progress = useHandoffProgress();
+  const isSphereEngaged = progress > SPHERE_ENGAGED_AT;
+
   return (
-    <main className="fixed inset-0 overflow-hidden">
+    <main>
       <h1 className="sr-only">Knowledge Sphere</h1>
 
-      {hasWebGL && !showList && <SphereScene />}
-      {showList && <SphereListView />}
+      <HeroQuote progress={progress} />
+      <ScrollCue progress={progress} />
+
+      {/* The quote's screen. Nothing in it but the quote behind. */}
+      <div className="h-dvh" />
 
       {/*
-        The way into the text index for anyone who prefers reading to
-        orbiting — and the way back. When WebGL is missing there is no scene
-        to return to, so the toggle disappears rather than offering one.
+        The Sphere's screen. Opaque, so it travels up *over* the receding quote
+        rather than letting it show through, and tall enough to hold the scene
+        outright — the Sphere is never covered by the quote.
       */}
-      {hasWebGL && (
-        <button
-          type="button"
-          aria-pressed={showList}
-          onClick={() => setWantsList(!showList)}
-          className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 fixed top-4 left-4 rounded-md border px-3 py-1.5 text-sm font-medium"
-        >
-          {showList ? "Sphere view" : "List view"}
-        </button>
+      <div className="bg-canvas relative z-10 h-dvh">
+        {hasWebGL && !showList && <SphereScene />}
+        {showList && (
+          <div className="h-full overflow-y-auto">
+            <SphereListView />
+          </div>
+        )}
+      </div>
+
+      {/*
+        Every fixed control belongs to the Sphere, so none of them appear until
+        the Sphere has the screen. Their positions are unchanged from before.
+      */}
+      {isSphereEngaged && (
+        <>
+          {hasWebGL && (
+            <button
+              type="button"
+              aria-pressed={showList}
+              onClick={() => setWantsList(!showList)}
+              className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 fixed top-4 left-4 z-20 rounded-md border px-3 py-1.5 text-sm font-medium"
+            >
+              {showList ? "Sphere view" : "List view"}
+            </button>
+          )}
+
+          <Link
+            href="/articles"
+            className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 fixed top-4 right-4 z-20 rounded-md border px-3 py-1.5 text-sm font-medium max-md:top-auto max-md:bottom-32"
+          >
+            Articles
+          </Link>
+
+          {!showList && <AtomDetailPanel />}
+          <OwnerAffordance />
+          <AtomEditor />
+          <ConnectionEditor />
+        </>
       )}
 
-      {!showList && <AtomDetailPanel />}
-      <OwnerAffordance />
-      <AtomEditor />
-      <ConnectionEditor />
       <p role="status" className="sr-only">
         {statusMessage(status, atoms.length, error)}
       </p>

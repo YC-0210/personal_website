@@ -27,7 +27,14 @@ export interface Connection {
   toAtomId: AtomId;
   /** How strongly the two Atoms relate, from 0 to 1. */
   strength: number;
+  /**
+   * The written half of the Explanation — what the knowledge linking the two
+   * Atoms actually is. Empty only when `externalLink` carries the Explanation
+   * instead; a Connection with neither is refused by the store.
+   */
   description: string;
+  /** The linked half of the Explanation: a URL to the thing that connects them. */
+  externalLink?: string;
 }
 
 /**
