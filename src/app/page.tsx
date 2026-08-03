@@ -11,18 +11,11 @@ import {
   ScrollCue,
   useHandoffProgress,
 } from "@/components/hero-quote";
-import { OrbitTuningPanel } from "@/components/orbit-tuning-panel";
 import { OwnerAffordance } from "@/components/owner-affordance";
 import { SphereListView } from "@/components/sphere-list-view";
 import { SphereScene } from "@/components/sphere-scene";
 import { isWebGLSupported } from "@/lib/webgl-support";
 import { atomIdFromHash } from "@/sphere/atom-link";
-import {
-  DEFAULT_ORBIT_TUNING,
-  isTuningRequested,
-  tuningFromSearch,
-  type OrbitTuning,
-} from "@/sphere/orbit-tuning";
 import { sceneNotice } from "@/sphere/scene-notice";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -43,16 +36,6 @@ function statusMessage(
 /** WebGL support never changes within a page load; there is nothing to watch. */
 function subscribeToNothing(): () => void {
   return () => {};
-}
-
-/**
- * TEMPORARY — the query string as it was on arrival, cached so it stays put
- * while the tuning panel rewrites the live one. Goes with the panel.
- */
-let arrivalSearch: string | null = null;
-function getArrivalSearch(): string {
-  arrivalSearch ??= window.location.search;
-  return arrivalSearch;
 }
 
 /**
@@ -124,41 +107,6 @@ export default function Home() {
   const progress = useHandoffProgress();
   const isSphereEngaged = progress > SPHERE_ENGAGED_AT;
 
-  /**
-   * TEMPORARY — the orbit tuning panel (`/?tune=1`). Every slider writes itself
-   * into the URL, so the setting that felt right can be sent back as a link.
-   * Comes out with `orbit-tuning.ts` once the numbers are chosen.
-   *
-   * The URL is read once, on arrival, and the sliders are held as state from
-   * there — reading it live would feed the panel's own `replaceState` back into
-   * itself on every drag.
-   */
-  const arrivalSearch = useSyncExternalStore(
-    subscribeToNothing,
-    getArrivalSearch,
-    () => "",
-  );
-  const isTuning = isTuningRequested(arrivalSearch);
-  const [tuned, setTuned] = useState<OrbitTuning | null>(null);
-  const tuning = tuned ?? tuningFromSearch(arrivalSearch);
-
-  function applyTuning(next: OrbitTuning) {
-    setTuned(next);
-
-    const params = new URLSearchParams(window.location.search);
-    params.set("tune", "1");
-    for (const [key, value] of Object.entries(next)) {
-      params.set(key, String(value));
-    }
-    // `replaceState`, not `push`: dragging a slider should not fill up the back
-    // button. The hash is carried through so a `#atom-…` selection survives.
-    window.history.replaceState(
-      null,
-      "",
-      `?${params.toString()}${window.location.hash}`,
-    );
-  }
-
   // The List view says both of these itself, so the notice is the scene's alone.
   const notice = showList
     ? null
@@ -207,7 +155,7 @@ export default function Home() {
         outright — the Sphere is never covered by the quote.
       */}
       <div className="bg-canvas relative z-10 h-dvh">
-        {hasWebGL && !showList && <SphereScene tuning={tuning} />}
+        {hasWebGL && !showList && <SphereScene />}
         {notice && <SceneNotice {...notice} />}
         {showList && (
           <div className="h-full overflow-y-auto">
@@ -239,14 +187,6 @@ export default function Home() {
           >
             Articles
           </Link>
-
-          {isTuning && !showList && (
-            <OrbitTuningPanel
-              tuning={tuning}
-              onChange={applyTuning}
-              onReset={() => applyTuning(DEFAULT_ORBIT_TUNING)}
-            />
-          )}
 
           {!showList && <AtomDetailPanel />}
           <OwnerAffordance />
