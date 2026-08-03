@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-import { moonOrbit } from "@/sphere/atom-moon";
+import { moonCount, moonOrbit } from "@/sphere/atom-moon";
 import type { AtomId, ConnectionId } from "@/sphere/domain";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -274,17 +274,27 @@ function AtomNodes() {
             (SHELL_SPIN_BASE + (index % 5) * SHELL_SPIN_STEP);
       }
 
-      const moon = node.getObjectByName("moon") as THREE.Mesh | undefined;
-      if (moon) {
+      const moons = node.getObjectByName("moons");
+      if (moons) {
         const { radius, speed } = moonOrbit(placement.rank);
-        // Reduced motion holds the moon at a fixed point on its orbit: the
-        // radius still carries Rank, it just stops travelling.
-        const angle = reducedMotion ? index : state.clock.elapsedTime * speed + index;
-        moon.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
-
-        const moonMaterial = moon.material as THREE.MeshBasicMaterial;
+        // Reduced motion holds the moons at fixed points on their orbit: the
+        // radius still carries Rank and the count still carries hours, they
+        // just stop travelling.
+        const travel = reducedMotion
+          ? index
+          : state.clock.elapsedTime * speed + index;
         const moonOpacity = isDimmed ? DIM_OPACITY : 1;
-        moonMaterial.opacity += (moonOpacity - moonMaterial.opacity) * step;
+
+        moons.children.forEach((moon, position) => {
+          // Spread evenly round the one orbit, so the count can be taken at a
+          // glance. Bunched moons read as one smeared moon.
+          const angle = travel + (position / moons.children.length) * Math.PI * 2;
+          moon.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+
+          const moonMaterial = (moon as THREE.Mesh)
+            .material as THREE.MeshBasicMaterial;
+          moonMaterial.opacity += (moonOpacity - moonMaterial.opacity) * step;
+        });
       }
     });
   });
@@ -313,10 +323,20 @@ function AtomNodes() {
             <mesh name="core" geometry={coreGeometry} scale={LATTICE_CORE_SCALE}>
               <meshBasicMaterial color={ATOM_COLOR} transparent />
             </mesh>
-            <group rotation={[Math.PI / 2.4 + (index % 4) * 0.2, (index % 6) * 0.5, 0]}>
-              <mesh name="moon" geometry={coreGeometry} scale={MOON_SIZE}>
-                <meshBasicMaterial color={MOON_COLOR} transparent />
-              </mesh>
+            {/*
+              One orbit per Atom, tilted its own way, carrying a moon for every
+              250 hours devoted to it. They share the plane so the count reads
+              as a count rather than as several unrelated bodies.
+            */}
+            <group
+              name="moons"
+              rotation={[Math.PI / 2.4 + (index % 4) * 0.2, (index % 6) * 0.5, 0]}
+            >
+              {Array.from({ length: moonCount(atom.hoursSpent) }, (_, moon) => (
+                <mesh key={moon} geometry={coreGeometry} scale={MOON_SIZE}>
+                  <meshBasicMaterial color={MOON_COLOR} transparent />
+                </mesh>
+              ))}
             </group>
             <mesh
               name="shell"

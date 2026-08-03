@@ -32,6 +32,33 @@ function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 
+/** Hours devoted per extra moon. */
+const HOURS_PER_MOON = 250;
+
+/**
+ * The most moons an Atom will ever draw.
+ *
+ * They share one orbit inside a shell that is a few dozen pixels across, so
+ * past this they overlap and the count stops being readable — and a count you
+ * cannot take is not a reading. Same reason a Connection runs at most six
+ * signal ticks.
+ */
+export const MAX_MOONS = 6;
+
+/**
+ * How many moons an Atom carries: one to begin with, and one more for every
+ * `HOURS_PER_MOON` hours devoted to it.
+ *
+ * Counted off raw hours rather than Rank on purpose. Rank is relative — it says
+ * where an Atom stands against the rest, and it shifts when a *different* Atom
+ * is edited. A count is absolute, so an Atom's moons only change when its own
+ * hours do, and four moons means the same thing in an empty Sphere as a full one.
+ */
+export function moonCount(hoursSpent: number): number {
+  const hours = Number.isFinite(hoursSpent) ? Math.max(0, hoursSpent) : 0;
+  return Math.min(MAX_MOONS, 1 + Math.floor(hours / HOURS_PER_MOON));
+}
+
 export function moonOrbit(rank: number): MoonOrbit {
   const clamped = Math.min(1, Math.max(0, rank));
   return {
