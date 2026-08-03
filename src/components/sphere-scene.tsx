@@ -325,8 +325,9 @@ function AtomNodes() {
             </mesh>
             {/*
               One orbit per Atom, tilted its own way, carrying a moon for every
-              250 hours devoted to it. They share the plane so the count reads
-              as a count rather than as several unrelated bodies.
+              whole 250 hours devoted to it — so an Atom under its first 250
+              orbits empty. They share the plane so the count reads as a count
+              rather than as several unrelated bodies.
             */}
             <group
               name="moons"

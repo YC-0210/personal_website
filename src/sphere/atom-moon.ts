@@ -46,8 +46,8 @@ const HOURS_PER_MOON = 250;
 export const MAX_MOONS = 6;
 
 /**
- * How many moons an Atom carries: one to begin with, and one more for every
- * `HOURS_PER_MOON` hours devoted to it.
+ * How many moons an Atom carries: one for every whole `HOURS_PER_MOON` hours
+ * devoted to it, and none before the first block is in.
  *
  * Counted off raw hours rather than Rank on purpose. Rank is relative — it says
  * where an Atom stands against the rest, and it shifts when a *different* Atom
@@ -56,7 +56,7 @@ export const MAX_MOONS = 6;
  */
 export function moonCount(hoursSpent: number): number {
   const hours = Number.isFinite(hoursSpent) ? Math.max(0, hoursSpent) : 0;
-  return Math.min(MAX_MOONS, 1 + Math.floor(hours / HOURS_PER_MOON));
+  return Math.min(MAX_MOONS, Math.floor(hours / HOURS_PER_MOON));
 }
 
 export function moonOrbit(rank: number): MoonOrbit {
