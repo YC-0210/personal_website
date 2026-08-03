@@ -8,6 +8,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import { moonOrbit } from "@/sphere/atom-moon";
 import type { AtomId, ConnectionId } from "@/sphere/domain";
+import { DEFAULT_ORBIT_TUNING, type OrbitTuning } from "@/sphere/orbit-tuning";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
 /** `canvas` from DESIGN.md — the near-black the whole site sits on. */
@@ -32,8 +33,11 @@ const SIGNAL_COLOR = new THREE.Color("#828fff");
 /** Radius the Atoms will eventually be placed on. */
 const SPHERE_RADIUS = 1;
 
-/** Degrees per second of idle drift. Slow enough to read as "alive", not "spinning". */
-const AUTO_ROTATE_SPEED = 0.35;
+/**
+ * The idle drift, drag and wheel rates live in `orbit-tuning.ts` while the
+ * Owner picks them (`/?tune=1`). They move back here as plain constants once
+ * the numbers are settled.
+ */
 
 /** How long after the visitor lets go before the idle drift resumes. */
 const RESUME_IDLE_AFTER_MS = 2500;
@@ -821,7 +825,12 @@ function CameraRig({
  * drag or swipe, and drifts again once they have been still for a beat.
  * Clicking an Atom selects it; clicking past every Atom lets the selection go.
  */
-export function SphereScene() {
+export function SphereScene({
+  /** TEMPORARY — supplied by the `/?tune=1` panel; otherwise today's values. */
+  tuning = DEFAULT_ORBIT_TUNING,
+}: {
+  tuning?: OrbitTuning;
+} = {}) {
   const { selectedAtomId } = useSphere();
   const [isIdle, setIsIdle] = useState(true);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -870,13 +879,14 @@ export function SphereScene() {
       <OrbitControls
         ref={controlsRef}
         autoRotate={isIdle && selectedAtomId === null}
-        autoRotateSpeed={AUTO_ROTATE_SPEED}
+        autoRotateSpeed={tuning.autoRotateSpeed}
         enableDamping
-        dampingFactor={0.08}
+        dampingFactor={tuning.dampingFactor}
         enablePan={false}
         minDistance={0.4}
         maxDistance={6}
-        rotateSpeed={0.6}
+        rotateSpeed={tuning.rotateSpeed}
+        zoomSpeed={tuning.zoomSpeed}
         onStart={handleInteractionStart}
         onEnd={handleInteractionEnd}
       />

@@ -52,7 +52,7 @@ export function OwnerAffordance() {
     // On mobile the detail panel owns the bottom edge, so this hangs below
     // the view toggle instead.
     return (
-      <div className="fixed bottom-4 left-4 flex items-center gap-3 text-xs max-md:top-16 max-md:bottom-auto">
+      <div className="fixed bottom-4 left-4 z-20 flex items-center gap-3 text-xs max-md:top-16 max-md:bottom-auto">
         {/* The email is a desktop nicety; on a phone it costs the row its room. */}
         <span className="text-ink-subtle max-md:hidden">{owner?.email}</span>
         <button
@@ -72,14 +72,14 @@ export function OwnerAffordance() {
         type="button"
         aria-label="Owner sign in"
         onClick={() => setIsFormOpen(true)}
-        className="border-hairline bg-surface-1 hover:border-hairline-strong fixed bottom-4 left-4 h-6 w-6 rounded-full border transition-colors max-md:top-16 max-md:bottom-auto"
+        className="border-hairline bg-surface-1 hover:border-hairline-strong fixed bottom-4 left-4 z-20 h-6 w-6 rounded-full border transition-colors max-md:top-16 max-md:bottom-auto"
       >
         <span className="bg-ink-tertiary mx-auto block h-1.5 w-1.5 rounded-full" />
       </button>
 
       {isFormOpen && (
         <div
-          className="fixed inset-0 grid place-items-center bg-black/60 p-4"
+          className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) setIsFormOpen(false);
           }}

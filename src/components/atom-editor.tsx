@@ -91,7 +91,7 @@ export function AtomEditor() {
         On mobile these ride just above the Compact Bar — the selection they
         act on is what the bar is showing.
       */}
-      <div className="fixed right-4 bottom-4 flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-end gap-2 text-sm max-md:right-3 max-md:bottom-20">
+      <div className="fixed right-4 bottom-4 z-20 flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-end gap-2 text-sm max-md:right-3 max-md:bottom-20">
         {selected && !isConfirmingDelete && (
           <>
             <button
@@ -145,7 +145,7 @@ export function AtomEditor() {
 
       {isFormOpen && (
         <div
-          className="fixed inset-0 grid place-items-center bg-black/60 p-4"
+          className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) setEditing("none");
           }}

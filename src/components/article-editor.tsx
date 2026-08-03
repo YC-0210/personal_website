@@ -196,7 +196,7 @@ export function ArticleEditor({
 
   return (
     <div
-      className="fixed inset-0 grid place-items-center bg-black/60 p-4"
+      className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

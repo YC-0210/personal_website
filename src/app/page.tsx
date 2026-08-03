@@ -11,11 +11,18 @@ import {
   ScrollCue,
   useHandoffProgress,
 } from "@/components/hero-quote";
+import { OrbitTuningPanel } from "@/components/orbit-tuning-panel";
 import { OwnerAffordance } from "@/components/owner-affordance";
 import { SphereListView } from "@/components/sphere-list-view";
 import { SphereScene } from "@/components/sphere-scene";
 import { isWebGLSupported } from "@/lib/webgl-support";
 import { atomIdFromHash } from "@/sphere/atom-link";
+import {
+  DEFAULT_ORBIT_TUNING,
+  isTuningRequested,
+  tuningFromSearch,
+  type OrbitTuning,
+} from "@/sphere/orbit-tuning";
 import { sceneNotice } from "@/sphere/scene-notice";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -39,10 +46,33 @@ function subscribeToNothing(): () => void {
 }
 
 /**
+ * TEMPORARY — the query string as it was on arrival, cached so it stays put
+ * while the tuning panel rewrites the live one. Goes with the panel.
+ */
+let arrivalSearch: string | null = null;
+function getArrivalSearch(): string {
+  arrivalSearch ??= window.location.search;
+  return arrivalSearch;
+}
+
+/**
  * Past this much of the handoff the Sphere owns the screen, so its controls
  * belong on it. Below it they would be floating over the quote.
  */
 const SPHERE_ENGAGED_AT = 0.6;
+
+/**
+ * The page's stacking order. Every `fixed` element on the Sphere must name one
+ * of these, because the Sphere's own screen is opaque and lifted: anything left
+ * at `z-auto` is painted over by the canvas and is invisible while looking
+ * perfectly correct in the DOM. That has already happened twice — to the
+ * Dossier, and to every one of the Owner's controls including the way in.
+ *
+ *   z-0   the hero quote, behind everything
+ *   z-10  the Sphere's screen (opaque `bg-canvas`, so it hides what it covers)
+ *   z-20  controls and panels that sit on the Sphere
+ *   z-30  modal dialogs and their scrims, over all of it
+ */
 
 /**
  * The empty and failed states, as a sighted visitor reads them.
@@ -94,6 +124,41 @@ export default function Home() {
   const progress = useHandoffProgress();
   const isSphereEngaged = progress > SPHERE_ENGAGED_AT;
 
+  /**
+   * TEMPORARY — the orbit tuning panel (`/?tune=1`). Every slider writes itself
+   * into the URL, so the setting that felt right can be sent back as a link.
+   * Comes out with `orbit-tuning.ts` once the numbers are chosen.
+   *
+   * The URL is read once, on arrival, and the sliders are held as state from
+   * there — reading it live would feed the panel's own `replaceState` back into
+   * itself on every drag.
+   */
+  const arrivalSearch = useSyncExternalStore(
+    subscribeToNothing,
+    getArrivalSearch,
+    () => "",
+  );
+  const isTuning = isTuningRequested(arrivalSearch);
+  const [tuned, setTuned] = useState<OrbitTuning | null>(null);
+  const tuning = tuned ?? tuningFromSearch(arrivalSearch);
+
+  function applyTuning(next: OrbitTuning) {
+    setTuned(next);
+
+    const params = new URLSearchParams(window.location.search);
+    params.set("tune", "1");
+    for (const [key, value] of Object.entries(next)) {
+      params.set(key, String(value));
+    }
+    // `replaceState`, not `push`: dragging a slider should not fill up the back
+    // button. The hash is carried through so a `#atom-…` selection survives.
+    window.history.replaceState(
+      null,
+      "",
+      `?${params.toString()}${window.location.hash}`,
+    );
+  }
+
   // The List view says both of these itself, so the notice is the scene's alone.
   const notice = showList
     ? null
@@ -142,7 +207,7 @@ export default function Home() {
         outright — the Sphere is never covered by the quote.
       */}
       <div className="bg-canvas relative z-10 h-dvh">
-        {hasWebGL && !showList && <SphereScene />}
+        {hasWebGL && !showList && <SphereScene tuning={tuning} />}
         {notice && <SceneNotice {...notice} />}
         {showList && (
           <div className="h-full overflow-y-auto">
@@ -174,6 +239,14 @@ export default function Home() {
           >
             Articles
           </Link>
+
+          {isTuning && !showList && (
+            <OrbitTuningPanel
+              tuning={tuning}
+              onChange={applyTuning}
+              onReset={() => applyTuning(DEFAULT_ORBIT_TUNING)}
+            />
+          )}
 
           {!showList && <AtomDetailPanel />}
           <OwnerAffordance />

@@ -103,7 +103,7 @@ export function ConnectionEditor() {
   return (
     <>
       {selectedConnections.length > 0 && !pendingConnection && (
-        <ul className="border-hairline bg-surface-1 fixed right-4 bottom-28 w-72 max-w-[calc(100vw-2rem)] space-y-1 rounded-lg border p-2 text-xs max-md:top-28 max-md:bottom-auto">
+        <ul className="border-hairline bg-surface-1 fixed right-4 bottom-28 z-20 w-72 max-w-[calc(100vw-2rem)] space-y-1 rounded-lg border p-2 text-xs max-md:top-28 max-md:bottom-auto">
           {selectedConnections.map((connection) => (
             <li
               key={connection.id}
@@ -164,7 +164,7 @@ export function ConnectionEditor() {
         rather than sitting under the dialog still asking for a second Atom.
       */}
       {/* Rides above the Atom controls; on mobile both rows hang from the top. */}
-      <div className="fixed right-4 bottom-16 flex items-center gap-2 text-sm max-md:top-16 max-md:bottom-auto">
+      <div className="fixed right-4 bottom-16 z-20 flex items-center gap-2 text-sm max-md:top-16 max-md:bottom-auto">
         {isPairPicked ? null : pendingConnection ? (
           <div className="border-hairline bg-surface-1 flex items-center gap-3 rounded-md border px-3 py-1.5">
             <span className="text-ink-subtle text-xs">
@@ -193,7 +193,7 @@ export function ConnectionEditor() {
 
       {isFormOpen && (
         <div
-          className="fixed inset-0 grid place-items-center bg-black/60 p-4"
+          className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) closeForm();
           }}
