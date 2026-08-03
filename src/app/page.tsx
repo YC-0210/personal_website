@@ -117,14 +117,6 @@ export default function Home() {
         </>
       )}
 
-      {/* ADR-0004 temporary: way into the prototypes. Removed with /proto. */}
-      <Link
-        href="/proto"
-        className="border-hairline bg-surface-1 text-ink-subtle fixed bottom-4 left-4 z-20 rounded-md border px-3 py-1.5 text-sm font-medium"
-      >
-        Prototypes
-      </Link>
-
       <p role="status" className="sr-only">
         {statusMessage(status, atoms.length, error)}
       </p>
