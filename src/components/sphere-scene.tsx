@@ -108,6 +108,20 @@ const LINE_BASE_BRIGHTNESS = 0.1;
 const LINE_STRENGTH_BRIGHTNESS = 0.2;
 
 /**
+ * How much of that brightness each emphasis spends.
+ *
+ * The store gives Connections three states, not two, and the difference
+ * between them is the whole selection gesture: at rest the Sphere shows how
+ * its Atoms relate, and selecting one lifts its own Connections *above* that
+ * resting level while pushing the rest below it. Reading only "highlighted"
+ * here collapsed neutral onto dimmed and left the Sphere with no visible
+ * Connections at all until something was clicked.
+ */
+const LINE_LEVEL_HIGHLIGHTED = 1;
+const LINE_LEVEL_NEUTRAL = 0.34;
+const LINE_LEVEL_DIMMED = 0.09;
+
+/**
  * How many signals a Connection runs is the far Atom's Rank — the busiest
  * lines lead to the knowledge with the most hours behind it.
  */
@@ -396,6 +410,8 @@ interface ConnectionEnds {
   /** Rank of the Atom at the far end, which sets how much signal runs here. */
   farRank: number;
   isHighlighted: boolean;
+  /** Set only when *another* Atom is selected — not the same as "not highlighted". */
+  isDimmed: boolean;
 }
 
 /**
@@ -424,6 +440,7 @@ function useConnectionEnds(): ConnectionEnds[] {
         end: new THREE.Vector3(...far.position),
         farRank: far.rank,
         isHighlighted: emphasis.connections[connection.id] === "highlighted",
+        isDimmed: emphasis.connections[connection.id] === "dimmed",
       });
     }
 
@@ -434,18 +451,18 @@ function useConnectionEnds(): ConnectionEnds[] {
 /**
  * One line per Connection, between its two Atoms.
  *
- * At rest the lines are drawn but unlit — the Sphere reads as a field of Atoms.
- * Selecting an Atom grows its Connections outward from it, at a brightness that
- * carries their Strength.
+ * At rest every Connection is drawn at its resting weight, so the Sphere shows
+ * how the Atoms relate before anything is clicked. Selecting an Atom lifts the
+ * Connections touching it to full brightness and pushes the rest well below
+ * resting — the light moves, the lines do not come and go.
+ *
+ * Brightness is the only thing that changes, and it carries Strength at every
+ * level, so a strong Connection reads as strong whether it is lit or at rest.
  */
 function ConnectionLines() {
   const ends = useConnectionEnds();
-  const progress = useRef(new Map<ConnectionId, number>());
-  /**
-   * The end a Connection was last drawn from. A Connection released by the
-   * selection retracts the way it grew rather than flipping ends mid-fade.
-   */
-  const drawnFrom = useRef(new Map<ConnectionId, ConnectionEnds>());
+  /** Eased brightness level per Connection, so emphasis changes fade. */
+  const level = useRef(new Map<ConnectionId, number>());
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
 
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
@@ -470,30 +487,37 @@ function ConnectionLines() {
     const step = reducedMotion ? 1 : 1 - Math.exp(-delta * LINE_EASE);
 
     ends.forEach((connection, index) => {
-      if (connection.isHighlighted) drawnFrom.current.set(connection.id, connection);
-      const drawnAs = drawnFrom.current.get(connection.id) ?? connection;
+      const target = connection.isHighlighted
+        ? LINE_LEVEL_HIGHLIGHTED
+        : connection.isDimmed
+          ? LINE_LEVEL_DIMMED
+          : LINE_LEVEL_NEUTRAL;
 
-      const target = connection.isHighlighted ? 1 : 0;
-      const drawn =
-        (progress.current.get(connection.id) ?? 0) +
-        (target - (progress.current.get(connection.id) ?? 0)) * step;
-      progress.current.set(connection.id, drawn);
+      const from = level.current.get(connection.id) ?? LINE_LEVEL_NEUTRAL;
+      const lit = from + (target - from) * step;
+      level.current.set(connection.id, lit);
 
-      const head = drawnAs.start.clone().lerp(drawnAs.end, Math.min(drawn, 1));
+      // The whole segment, always. Which end is `start` still matters to the
+      // signal sweep, but a line drawn end to end doesn't care.
       position.setXYZ(
         index * 2,
-        drawnAs.start.x,
-        drawnAs.start.y,
-        drawnAs.start.z,
+        connection.start.x,
+        connection.start.y,
+        connection.start.z,
       );
-      position.setXYZ(index * 2 + 1, head.x, head.y, head.z);
+      position.setXYZ(
+        index * 2 + 1,
+        connection.end.x,
+        connection.end.y,
+        connection.end.z,
+      );
 
       // Additive blending: brightness is how the opacity reads, so the
       // Strength goes into the colour rather than a per-line material.
       const brightness =
         (LINE_BASE_BRIGHTNESS +
           connection.strength * LINE_STRENGTH_BRIGHTNESS) *
-        drawn;
+        lit;
       for (const vertex of [index * 2, index * 2 + 1]) {
         color.setXYZ(
           vertex,
