@@ -24,9 +24,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="bg-canvas text-ink h-full overflow-hidden font-sans">
-        {children}
-      </body>
+      {/*
+        No `overflow-hidden` here. The Sphere page pins itself with `fixed
+        inset-0` and needs no help from the document, whereas every other page —
+        the Articles list, an Article, the Trash — is ordinary prose that has to
+        scroll. Locking the body locked those too.
+      */}
+      <body className="bg-canvas text-ink min-h-full font-sans">{children}</body>
     </html>
   );
 }
