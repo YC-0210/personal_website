@@ -1,10 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getSupabaseClient } from "@/lib/supabase-client";
-import type { Article, ArticleDraft, ArticleId } from "./domain";
+import type {
+  Article,
+  ArticleDraft,
+  ArticleId,
+  Bonding,
+  BondingDraft,
+  BondingId,
+} from "./domain";
 import type { ArticleRepository } from "./repository";
 
 const ARTICLE_COLUMNS = "id, title, body, deleted_at";
+const BONDING_COLUMNS = "id, article_id, atom_id, name";
 
 interface ArticleRow {
   id: string;
@@ -13,12 +21,28 @@ interface ArticleRow {
   deleted_at: string | null;
 }
 
+interface BondingRow {
+  id: string;
+  article_id: string;
+  atom_id: string;
+  name: string;
+}
+
 function toArticle(row: ArticleRow): Article {
   return {
     id: row.id,
     title: row.title,
     body: row.body,
     deletedAt: row.deleted_at,
+  };
+}
+
+function toBonding(row: BondingRow): Bonding {
+  return {
+    id: row.id,
+    articleId: row.article_id,
+    atomId: row.atom_id,
+    name: row.name,
   };
 }
 
@@ -89,6 +113,40 @@ export class SupabaseArticleRepository implements ArticleRepository {
     if (error) {
       throw new Error(`Could not permanently delete the Article: ${error.message}`);
     }
+  }
+
+  async loadBondings(): Promise<Bonding[]> {
+    const { data, error } = await this.resolveClient()
+      .from("bondings")
+      .select(BONDING_COLUMNS)
+      .order("created_at", { ascending: true });
+
+    if (error) throw new Error(`Could not load the Bondings: ${error.message}`);
+    return (data as BondingRow[]).map(toBonding);
+  }
+
+  async createBonding(draft: BondingDraft): Promise<Bonding> {
+    const { data, error } = await this.resolveClient()
+      .from("bondings")
+      .insert({
+        article_id: draft.articleId,
+        atom_id: draft.atomId,
+        name: draft.name,
+      })
+      .select(BONDING_COLUMNS)
+      .single();
+
+    if (error) throw new Error(`Could not bond the Article: ${error.message}`);
+    return toBonding(data as BondingRow);
+  }
+
+  async deleteBonding(bondingId: BondingId): Promise<void> {
+    const { error } = await this.resolveClient()
+      .from("bondings")
+      .delete()
+      .eq("id", bondingId);
+
+    if (error) throw new Error(`Could not unbond the Atom: ${error.message}`);
   }
 
   private async patch(

@@ -3,7 +3,14 @@ import {
   type AuthProvider,
   type OwnerSession,
 } from "@/sphere/auth";
-import type { Article, ArticleDraft, ArticleId } from "./domain";
+import type {
+  Article,
+  ArticleDraft,
+  ArticleId,
+  Bonding,
+  BondingDraft,
+  BondingId,
+} from "./domain";
 import type { ArticleRepository } from "./repository";
 
 export type ArticleStatus = "idle" | "loading" | "ready" | "error";
@@ -12,6 +19,8 @@ export interface ArticleState {
   status: ArticleStatus;
   /** Every Article the reader is allowed to see, Trash included for the Owner. */
   articles: Article[];
+  /** Every Article-to-Atom Bonding, read in both directions. */
+  bondings: Bonding[];
   error: string | null;
   owner: OwnerSession | null;
   isEditMode: boolean;
@@ -20,9 +29,16 @@ export interface ArticleState {
 
 export type ArticleListener = (state: ArticleState) => void;
 
+/** One row of an Atom's Dossier: an Article, and why it draws on that Atom. */
+export interface BondedArticle {
+  article: Article;
+  bonding: Bonding;
+}
+
 const EMPTY_STATE: ArticleState = {
   status: "idle",
   articles: [],
+  bondings: [],
   error: null,
   owner: null,
   isEditMode: false,
@@ -60,8 +76,11 @@ export class ArticleStore {
     this.setState({ status: "loading", error: null });
 
     try {
-      const articles = await this.repository.loadArticles();
-      this.setState({ articles, status: "ready", error: null });
+      const [articles, bondings] = await Promise.all([
+        this.repository.loadArticles(),
+        this.repository.loadBondings(),
+      ]);
+      this.setState({ articles, bondings, status: "ready", error: null });
     } catch (cause) {
       this.setState({
         status: "error",
@@ -129,12 +148,75 @@ export class ArticleStore {
   async destroyArticle(articleId: ArticleId): Promise<void> {
     await this.write(async () => {
       await this.repository.deleteArticleForever(articleId);
+      // The `on delete cascade` on `bondings.article_id` is the database's; it
+      // is mirrored here so no Atom's Dossier briefly lists an Article that has
+      // already gone.
       this.setState({
         articles: this.state.articles.filter(
           (article) => article.id !== articleId,
         ),
+        bondings: this.state.bondings.filter(
+          (bonding) => bonding.articleId !== articleId,
+        ),
       });
     });
+  }
+
+  /**
+   * Bond this Article to an Atom, saying how that Atom feeds into it.
+   */
+  async addBonding(draft: BondingDraft): Promise<void> {
+    await this.write(async () => {
+      requireBondingName(draft);
+
+      // One pair, one Bonding — the schema enforces it with a unique index, and
+      // catching it here turns a constraint name into a sentence. Saying the
+      // same thing twice about the same pair is an edit, not a second bond.
+      const alreadyBonded = this.state.bondings.some(
+        (bonding) =>
+          bonding.articleId === draft.articleId &&
+          bonding.atomId === draft.atomId,
+      );
+      if (alreadyBonded) {
+        throw new Error("That Article and Atom are already bonded.");
+      }
+
+      const bonding = await this.repository.createBonding(draft);
+      this.setState({ bondings: [...this.state.bondings, bonding] });
+    });
+  }
+
+  /** Unbond an Article from an Atom. Neither of them is otherwise touched. */
+  async deleteBonding(bondingId: BondingId): Promise<void> {
+    await this.write(async () => {
+      await this.repository.deleteBonding(bondingId);
+      this.setState({
+        bondings: this.state.bondings.filter(
+          (bonding) => bonding.id !== bondingId,
+        ),
+      });
+    });
+  }
+
+  /** The Atoms this Article is bonded to — the Article → Atom read. */
+  bondingsForArticle(articleId: ArticleId): Bonding[] {
+    return this.state.bondings.filter(
+      (bonding) => bonding.articleId === articleId,
+    );
+  }
+
+  /**
+   * The Articles bonded to this Atom, each with the Bonding that explains it —
+   * the Atom → Article read, which is what an Atom's Dossier lists.
+   */
+  bondedArticles(atomId: string): BondedArticle[] {
+    const bonded: BondedArticle[] = [];
+    for (const bonding of this.state.bondings) {
+      if (bonding.atomId !== atomId) continue;
+      const article = this.getArticle(bonding.articleId);
+      if (article) bonded.push({ article, bonding });
+    }
+    return bonded;
   }
 
   /**
@@ -188,6 +270,21 @@ export class ArticleStore {
   private setState(patch: Partial<ArticleState>): void {
     this.state = Object.freeze({ ...this.state, ...patch });
     for (const listener of this.listeners) listener(this.state);
+  }
+}
+
+/**
+ * A Bonding has to say *how* the Atom feeds into the Article. That sentence is
+ * the Name, and it is the same rule a Connection's Explanation carries: without
+ * it the bond is a line between two things with no knowledge on it.
+ *
+ * Enforced here rather than only in the form, so no caller can route around it.
+ */
+function requireBondingName(draft: BondingDraft): void {
+  if (draft.name.trim() === "") {
+    throw new Error(
+      "A Bonding needs a Name: how this Atom feeds into this Article.",
+    );
   }
 }
 

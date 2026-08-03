@@ -1,8 +1,16 @@
-import type { Article, ArticleDraft, ArticleId } from "./domain";
+import type {
+  Article,
+  ArticleDraft,
+  ArticleId,
+  Bonding,
+  BondingDraft,
+  BondingId,
+} from "./domain";
 import type { ArticleRepository } from "./repository";
 
 export interface FakeArticleRepositoryOptions {
   articles?: Article[];
+  bondings?: Bonding[];
   /** What `trashArticle` stamps, so tests don't have to deal with real clocks. */
   now?: string;
 }
@@ -13,6 +21,7 @@ export interface FakeArticleRepositoryOptions {
  */
 export class FakeArticleRepository implements ArticleRepository {
   private articles: Article[];
+  private bondings: Bonding[];
   private readonly now: string;
   private failure: Error | null = null;
   private nextId = 1;
@@ -22,6 +31,7 @@ export class FakeArticleRepository implements ArticleRepository {
 
   constructor(options: FakeArticleRepositoryOptions = {}) {
     this.articles = [...(options.articles ?? [])];
+    this.bondings = [...(options.bondings ?? [])];
     this.now = options.now ?? "2026-08-02T00:00:00.000Z";
   }
 
@@ -63,9 +73,36 @@ export class FakeArticleRepository implements ArticleRepository {
     }));
   }
 
+  /**
+   * Mirrors the `on delete cascade` on `bondings.article_id`: destroying an
+   * Article destroys the Bondings that cited its Atoms.
+   */
   async deleteArticleForever(articleId: ArticleId): Promise<void> {
     if (this.failure) throw this.failure;
     this.articles = this.articles.filter((article) => article.id !== articleId);
+    this.bondings = this.bondings.filter(
+      (bonding) => bonding.articleId !== articleId,
+    );
+  }
+
+  async loadBondings(): Promise<Bonding[]> {
+    if (this.failure) throw this.failure;
+    return this.bondings.map((bonding) => ({ ...bonding }));
+  }
+
+  async createBonding(draft: BondingDraft): Promise<Bonding> {
+    if (this.failure) throw this.failure;
+    const bonding: Bonding = {
+      ...draft,
+      id: `generated-bonding-${this.nextId++}`,
+    };
+    this.bondings.push(bonding);
+    return { ...bonding };
+  }
+
+  async deleteBonding(bondingId: BondingId): Promise<void> {
+    if (this.failure) throw this.failure;
+    this.bondings = this.bondings.filter((bonding) => bonding.id !== bondingId);
   }
 
   /** Replace the stored rows, as if something changed behind the store's back. */

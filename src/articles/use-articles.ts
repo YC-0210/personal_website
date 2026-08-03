@@ -24,6 +24,7 @@ export function getArticleStore(): ArticleStore {
 const SERVER_SNAPSHOT: ArticleState = {
   status: "idle",
   articles: [],
+  bondings: [],
   error: null,
   owner: null,
   isEditMode: false,

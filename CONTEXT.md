@@ -64,6 +64,14 @@ A piece of the Owner's writing, published the moment it is saved. Lives on the
 Articles page, apart from the Sphere.
 _Avoid_: post, blog, entry, note.
 
+**Bonding**:
+A link between an Article and an Atom, carrying a Name that says how that Atom
+feeds into that Article — "How classical physics connects to economics". An
+Article can bond to many Atoms and an Atom can be bonded from many Articles;
+each pair bonds once. Read in both directions: the Atom's Dossier lists the
+Articles bonded to it, and the Article lists the Atoms it draws on.
+_Avoid_: citation, tag, reference, backlink.
+
 **Trash**:
 Where a deleted Article waits. Deleting an Article marks it rather than removing
 it — it leaves the public list at once, and the Owner can restore it or delete

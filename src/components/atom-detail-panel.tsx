@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { getArticleStore, useArticles } from "@/articles/use-articles";
 import type { AtomDetail } from "@/sphere/store";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -27,6 +29,10 @@ export function AtomDetailPanel() {
   const { selectedAtomId } = useSphere();
   const store = getSphereStore();
   const detail = store.selectedDetail();
+
+  // The Articles that cite this Atom. Loaded here on the Sphere for the same
+  // reason the Article page loads the Sphere: the Bonding spans both (ADR-0007).
+  useArticles();
 
   // The card keeps its last contents while sliding out, so an exit reads as
   // the card leaving rather than the card emptying first. While the card is
@@ -56,6 +62,35 @@ export function AtomDetailPanel() {
   }, [isOpen]);
 
   if (!shown) return null;
+
+  // Read off `shown` rather than `detail`, so the list stays put while the card
+  // slides out instead of emptying first — the same rule the rest of the card
+  // follows.
+  const bondedArticles = getArticleStore().bondedArticles(shown.atom.id);
+
+  const bondedArticleRows = bondedArticles.length > 0 && (
+    <>
+      <p className="text-ink-tertiary mt-8 text-[13px] font-medium tracking-[0.4px]">
+        WRITTEN ABOUT · {bondedArticles.length}
+      </p>
+      <div className="mt-2 flex flex-col">
+        {bondedArticles.map(({ article, bonding }) => (
+          <Link
+            key={bonding.id}
+            href={`/articles/${article.id}`}
+            className="border-hairline hover:bg-primary-hover/5 group flex flex-col gap-1 border-t py-3"
+          >
+            <span className="text-ink-muted text-sm leading-relaxed">
+              {bonding.name}
+            </span>
+            <span className="text-ink-subtle group-hover:text-primary-hover text-xs">
+              → {article.title}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
 
   const connectionRows = (
     <div className="mt-2 flex flex-col">
@@ -106,11 +141,18 @@ export function AtomDetailPanel() {
 
   return (
     <>
-      {/* Desktop: the side card, exactly as before. */}
+      {/*
+        Desktop: the side card.
+
+        `z-20` puts it on the same layer as every other fixed control. Without
+        it the card sits at `z-auto` under the Sphere's own `z-10` screen, whose
+        opaque canvas then paints straight over it — laid out, lit, and
+        invisible.
+      */}
       <aside
         aria-label={`${shown.atom.label} details`}
         aria-hidden={!isOpen}
-        className={`border-hairline bg-surface-1 fixed top-4 right-4 bottom-4 w-[372px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border p-6 transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:hidden ${
+        className={`border-hairline bg-surface-1 fixed top-4 right-4 bottom-4 z-20 w-[372px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border p-6 transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none max-md:hidden ${
           isOpen
             ? "translate-x-0 opacity-100"
             : "pointer-events-none translate-x-[calc(100%+2rem)] opacity-0"
@@ -142,6 +184,7 @@ export function AtomDetailPanel() {
           CONNECTED KNOWLEDGE · {shown.connections.length}
         </p>
         {connectionRows}
+        {bondedArticleRows}
       </aside>
 
       {/* Mobile: the Compact Bar — the lean form that never blocks the Sphere. */}
@@ -197,6 +240,7 @@ export function AtomDetailPanel() {
             CONNECTED KNOWLEDGE · {shown.connections.length}
           </p>
           {connectionRows}
+          {bondedArticleRows}
 
           <p className="text-ink-tertiary mt-8 text-[13px] font-medium tracking-[0.4px]">
             ABOUT

@@ -22,3 +22,26 @@ export interface Article {
 
 /** What the Owner supplies. The id and the Trash state are the store's. */
 export type ArticleDraft = Pick<Article, "title" | "body">;
+
+export type BondingId = string;
+
+/**
+ * A Bonding joins one Article to one Atom and says, in the Owner's words, how
+ * that Atom feeds into that Article — "How classical physics connects to
+ * economics". Both directions are read: an Atom's Dossier lists the Articles
+ * bonded to it, and an Article lists the Atoms it draws on.
+ *
+ * The Name is the whole point, exactly as a Connection's Explanation is: a
+ * Bonding with no Name is an unexplained line between two things, so the store
+ * refuses to save one.
+ */
+export interface Bonding {
+  id: BondingId;
+  articleId: ArticleId;
+  /** The Atom this Article draws on. Ids only — Atoms belong to the Sphere. */
+  atomId: string;
+  name: string;
+}
+
+/** What the Owner supplies when bonding. The id is the store of record's. */
+export type BondingDraft = Omit<Bonding, "id">;

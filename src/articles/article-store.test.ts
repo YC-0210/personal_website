@@ -137,6 +137,219 @@ describe("Getting an Article back, or getting rid of it for good", () => {
   });
 });
 
+describe("Bonding an Article to an Atom", () => {
+  it("reads the Bondings already on record when the page loads", async () => {
+    const repository = new FakeArticleRepository({
+      articles: [onTheSphere],
+      bondings: [
+        {
+          id: "bonding-physics",
+          articleId: onTheSphere.id,
+          atomId: "atom-physics",
+          name: "How classical physics connects to economics",
+        },
+      ],
+    });
+    const store = createArticleStore(
+      repository,
+      new FakeAuthProvider({ owner: OWNER, signedIn: true }),
+    );
+
+    await store.load();
+
+    expect(store.bondingsForArticle(onTheSphere.id)).toHaveLength(1);
+    expect(store.bondedArticles("atom-physics")).toHaveLength(1);
+  });
+
+  it("records how that particular Atom feeds into that particular Article", async () => {
+    const { store } = await ownerStore([onTheSphere]);
+
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-physics",
+      name: "How classical physics connects to economics",
+    });
+
+    expect(store.bondingsForArticle(onTheSphere.id)).toEqual([
+      {
+        id: expect.any(String),
+        articleId: onTheSphere.id,
+        atomId: "atom-physics",
+        name: "How classical physics connects to economics",
+      },
+    ]);
+  });
+
+  it("refuses one with no Name — an unexplained bond is not knowledge", async () => {
+    const { repository, store } = await ownerStore([onTheSphere]);
+
+    await expect(
+      store.addBonding({
+        articleId: onTheSphere.id,
+        atomId: "atom-physics",
+        name: "   ",
+      }),
+    ).rejects.toThrow("Name");
+
+    // Refused in the store, so it never reached the store of record either.
+    expect(await repository.loadBondings()).toEqual([]);
+    expect(store.bondingsForArticle(onTheSphere.id)).toEqual([]);
+  });
+
+  it("refuses to bond the same Article and Atom twice", async () => {
+    const { repository, store } = await ownerStore([onTheSphere]);
+    const pair = { articleId: onTheSphere.id, atomId: "atom-physics" };
+
+    await store.addBonding({ ...pair, name: "Physics feeds the argument" });
+    await expect(
+      store.addBonding({ ...pair, name: "Said again, differently" }),
+    ).rejects.toThrow("already bonded");
+
+    expect(await repository.loadBondings()).toHaveLength(1);
+  });
+});
+
+const onEconomics: Article = {
+  id: "article-economics",
+  title: "On Economics",
+  body: "Why the mechanics metaphor got borrowed, and where it broke.",
+  deletedAt: null,
+};
+
+describe("Reading a Bonding from the Atom's end", () => {
+  it("lists every Article bonded to that Atom, each with its Bonding Name", async () => {
+    const { store } = await ownerStore([onTheSphere, onEconomics]);
+
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-physics",
+      name: "How classical physics connects to economics",
+    });
+    await store.addBonding({
+      articleId: onEconomics.id,
+      atomId: "atom-physics",
+      name: "Where the mechanics metaphor breaks",
+    });
+    // A different Atom entirely — it has no business in this Dossier.
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-graphics",
+      name: "Why the Sphere is drawn and not listed",
+    });
+
+    expect(
+      store.bondedArticles("atom-physics").map(({ article, bonding }) => [
+        article.title,
+        bonding.name,
+      ]),
+    ).toEqual([
+      ["On the Sphere", "How classical physics connects to economics"],
+      ["On Economics", "Where the mechanics metaphor breaks"],
+    ]);
+  });
+
+  it("drops an Article that has gone to the Trash", async () => {
+    const { store } = await ownerStore([onTheSphere, onEconomics]);
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-physics",
+      name: "How classical physics connects to economics",
+    });
+    await store.addBonding({
+      articleId: onEconomics.id,
+      atomId: "atom-physics",
+      name: "Where the mechanics metaphor breaks",
+    });
+
+    await store.deleteArticle(onTheSphere.id);
+
+    // The Dossier must not link to something the reader cannot open.
+    expect(
+      store.bondedArticles("atom-physics").map(({ article }) => article.id),
+    ).toEqual([onEconomics.id]);
+  });
+});
+
+describe("Reading a Bonding from the Article's end", () => {
+  it("lists every Atom the Article draws on, each with its own Name", async () => {
+    const { store } = await ownerStore([onTheSphere, onEconomics]);
+
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-physics",
+      name: "How classical physics connects to economics",
+    });
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-graphics",
+      name: "Why the Sphere is drawn and not listed",
+    });
+    // Another Article's bond, on an Atom this one also uses.
+    await store.addBonding({
+      articleId: onEconomics.id,
+      atomId: "atom-physics",
+      name: "Where the mechanics metaphor breaks",
+    });
+
+    expect(
+      store
+        .bondingsForArticle(onTheSphere.id)
+        .map((bonding) => [bonding.atomId, bonding.name]),
+    ).toEqual([
+      ["atom-physics", "How classical physics connects to economics"],
+      ["atom-graphics", "Why the Sphere is drawn and not listed"],
+    ]);
+  });
+
+  it("unbonds one without touching the Article or the other bonds", async () => {
+    const { repository, store } = await ownerStore([onTheSphere]);
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-physics",
+      name: "How classical physics connects to economics",
+    });
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-graphics",
+      name: "Why the Sphere is drawn and not listed",
+    });
+    const [physics] = store.bondingsForArticle(onTheSphere.id);
+
+    await store.deleteBonding(physics.id);
+
+    expect(
+      store.bondingsForArticle(onTheSphere.id).map((b) => b.atomId),
+    ).toEqual(["atom-graphics"]);
+    expect(await repository.loadBondings()).toHaveLength(1);
+    expect(store.getArticle(onTheSphere.id)).toBeDefined();
+  });
+});
+
+describe("An Article destroyed for good", () => {
+  it("takes its Bondings with it, so no Atom links into nothing", async () => {
+    const { repository, store } = await ownerStore([onTheSphere, onEconomics]);
+    await store.addBonding({
+      articleId: onTheSphere.id,
+      atomId: "atom-physics",
+      name: "How classical physics connects to economics",
+    });
+    await store.addBonding({
+      articleId: onEconomics.id,
+      atomId: "atom-physics",
+      name: "Where the mechanics metaphor breaks",
+    });
+
+    await store.deleteArticle(onTheSphere.id);
+    await store.destroyArticle(onTheSphere.id);
+
+    expect(store.bondingsForArticle(onTheSphere.id)).toEqual([]);
+    expect(store.bondedArticles("atom-physics")).toHaveLength(1);
+    // Gone from the store of record too — the database cascades, and the store
+    // mirrors it so the page never draws a bond to an Article that has gone.
+    expect(await repository.loadBondings()).toHaveLength(1);
+  });
+});
+
 async function visitorStore(articles?: Article[]) {
   const repository = new FakeArticleRepository({ articles });
   const store = createArticleStore(
@@ -191,5 +404,34 @@ describe("Article writes outside Edit Mode", () => {
     );
 
     expect(await repository.loadArticles()).toEqual([onTheSphere]);
+  });
+
+  it("refuses to bond an Article to an Atom, or to unbond one", async () => {
+    const bonding = {
+      id: "bonding-physics",
+      articleId: onTheSphere.id,
+      atomId: "atom-physics",
+      name: "How classical physics connects to economics",
+    };
+    const repository = new FakeArticleRepository({
+      articles: [onTheSphere],
+      bondings: [bonding],
+    });
+    const store = createArticleStore(
+      repository,
+      new FakeAuthProvider({ owner: OWNER }),
+    );
+    await store.load();
+
+    await expect(
+      store.addBonding({
+        articleId: onTheSphere.id,
+        atomId: "atom-graphics",
+        name: "Snuck in",
+      }),
+    ).rejects.toThrow("Edit Mode");
+    await expect(store.deleteBonding(bonding.id)).rejects.toThrow("Edit Mode");
+
+    expect(await repository.loadBondings()).toEqual([bonding]);
   });
 });

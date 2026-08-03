@@ -4,6 +4,143 @@ import { useEffect, useRef, useState } from "react";
 
 import type { Article } from "@/articles/domain";
 import { getArticleStore, useArticles } from "@/articles/use-articles";
+import { getSphereStore, useSphere } from "@/sphere/use-sphere";
+
+/**
+ * Bonding an Article to the Atoms it draws on (issue #26).
+ *
+ * A Bonding is its own row rather than a field of the Article, so bonding and
+ * unbonding save the moment they are used — they do not wait for the Article's
+ * Save button, and they are deliberately not nested in its `<form>`.
+ *
+ * The Name is required, and the store is what refuses a blank one; the button
+ * being disabled is a convenience on top of that rule, not the rule itself.
+ */
+function BondingSection({ article }: { article: Article }) {
+  const store = getArticleStore();
+  const { atoms } = useSphere();
+  const sphere = getSphereStore();
+
+  const [atomId, setAtomId] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const bondings = store.bondingsForArticle(article.id);
+  const bondedIds = new Set(bondings.map((bonding) => bonding.atomId));
+  const bondable = atoms.filter((atom) => !bondedIds.has(atom.id));
+
+  async function bond() {
+    setError(null);
+    try {
+      await store.addBonding({ articleId: article.id, atomId, name });
+      setAtomId("");
+      setName("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  async function unbond(bondingId: string) {
+    setError(null);
+    try {
+      await store.deleteBonding(bondingId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  return (
+    <section className="border-hairline mt-2 mb-4 border-t pt-4">
+      <p className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]">
+        BONDED ATOMS · {bondings.length}
+      </p>
+      <p className="text-ink-subtle mt-1 text-xs leading-relaxed">
+        Say how each Atom feeds into this Article. The Atom&rsquo;s Dossier will
+        list this Article back.
+      </p>
+
+      {bondings.length > 0 && (
+        <ul className="mt-3 flex flex-col">
+          {bondings.map((bonding) => (
+            <li
+              key={bonding.id}
+              className="border-hairline flex items-start justify-between gap-3 border-t py-2"
+            >
+              <span className="min-w-0">
+                <span className="text-ink-muted block text-sm leading-relaxed">
+                  {bonding.name}
+                </span>
+                <span className="text-ink-subtle text-xs">
+                  → {sphere.getAtom(bonding.atomId)?.label ?? "Unknown Atom"}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => void unbond(bonding.id)}
+                className="border-hairline bg-surface-2 text-ink-subtle hover:text-ink shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium"
+              >
+                Unbond
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {bondable.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <select
+            aria-label="Atom to bond"
+            value={atomId}
+            onChange={(event) => setAtomId(event.target.value)}
+            className="border-hairline bg-surface-2 text-ink rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="">Choose an Atom…</option>
+            {bondable.map((atom) => (
+              <option key={atom.id} value={atom.id}>
+                {atom.label}
+              </option>
+            ))}
+          </select>
+          <input
+            aria-label="How this Atom feeds into this Article"
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            // Enter here would submit the Article form around it, which is not
+            // what the Owner means while they are typing a Bonding Name.
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (atomId && name.trim()) void bond();
+            }}
+            placeholder="How this Atom feeds into this Article"
+            className="border-hairline bg-surface-2 text-ink min-w-48 flex-1 rounded-md border px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            disabled={!atomId || name.trim() === ""}
+            onClick={() => void bond()}
+            className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            Bond
+          </button>
+        </div>
+      ) : (
+        <p className="text-ink-tertiary mt-3 text-xs">
+          {atoms.length === 0
+            ? "There are no Atoms in the Sphere to bond to yet."
+            : "Every Atom in the Sphere is already bonded to this Article."}
+        </p>
+      )}
+
+      {error && (
+        <p role="alert" className="text-ink-muted mt-3 text-xs">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
 
 /**
  * The Owner's Article form — the same dialog shell the Atom and Connection
@@ -107,6 +244,19 @@ export function ArticleEditor({
           defaultValue={article?.body ?? ""}
           className="border-hairline bg-surface-2 text-ink mb-4 w-full resize-y rounded-md border px-3 py-2 text-sm leading-relaxed"
         />
+
+        {/*
+          Bonding needs an Article to bond, and a new one has no id until it is
+          saved. Rather than hold the bonds in limbo, the section appears once
+          the Article exists — which is one Save away.
+        */}
+        {article ? (
+          <BondingSection article={article} />
+        ) : (
+          <p className="border-hairline text-ink-tertiary mt-2 mb-4 border-t pt-4 text-xs">
+            Save the Article first, then reopen it to bond it to Atoms.
+          </p>
+        )}
 
         {writeError && (
           <p role="alert" className="text-ink-muted mb-3 text-xs">
