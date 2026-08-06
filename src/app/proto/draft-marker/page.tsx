@@ -117,11 +117,18 @@ function DirectionA() {
 /* ------------------------------------------------------------------ */
 
 /**
- * The triangle rides inside a `status-badge` pill next to the Article's title —
- * DESIGN.md already specifies that component, so this direction invents nothing.
- * It says the word "Draft" out loud, which a bare glyph cannot: the Owner never
- * has to learn what the mark means, and the state is legible at a glance in a
- * list where most rows are published.
+ * CHOSEN, 2026-08-04, and then refined by the Owner: the pill is filled with
+ * the moon's own lavender rather than sitting on `surface-2`, so a draft in the
+ * Dossier and the moon turning inside the Atom read as the same colour.
+ *
+ * The text on it is near-black, not white. White on `primary-hover` measures
+ * 2.9:1, which fails WCAG AA at any size; `canvas` on it measures 7.3:1. The
+ * fill is the thing the Owner asked for, so the text is what moves.
+ *
+ * This is the one place lavender is used as a fill. DESIGN.md reserves it for
+ * the brand mark, the primary CTA, focus rings and link emphasis, and warns off
+ * using it as a background — a 20px status chip is a deliberate exception,
+ * made to tie the marker to the moon.
  */
 function DirectionB() {
   return (
@@ -136,11 +143,11 @@ function DirectionB() {
               → {row.title}
             </span>
             {row.isDraft && (
-              <span className="bg-surface-2 text-ink-muted inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px]">
+              <span className="bg-primary-hover text-canvas inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
                 <svg viewBox="0 0 10 10" aria-hidden className="w-2">
                   <path
                     d="M1 1 L9 5 L1 9 Z"
-                    fill="none"
+                    fill="currentColor"
                     stroke="currentColor"
                     strokeWidth="1.6"
                     strokeLinejoin="round"
@@ -208,21 +215,24 @@ function DirectionC() {
 
 const DIRECTIONS = [
   {
+    key: "B",
+    chosen: true,
+    title: "B — Named state",
+    blurb:
+      "The triangle rides in a Draft pill beside the Article title. Says the state out loud, so nothing has to be learned. The pill is filled with the moon's own lavender, so a draft and the body turning inside an Atom read as the same colour.",
+    node: <DirectionB />,
+  },
+  {
     key: "A",
+    chosen: false,
     title: "A — Mark in the margin",
     blurb:
       "A hollow triangle in a gutter left of the row. Published rows leave it empty, so the drafts break an otherwise straight edge. Pure punctuation: no word, no chrome, no space taken from the text.",
     node: <DirectionA />,
   },
   {
-    key: "B",
-    title: "B — Named state",
-    blurb:
-      "The triangle rides in a Draft pill beside the Article title, using the status-badge component DESIGN.md already specifies. Says the state out loud, so nothing has to be learned.",
-    node: <DirectionB />,
-  },
-  {
     key: "C",
+    chosen: false,
     title: "C — The row is visibly unfinished",
     blurb:
       "The triangle is a notch cut from the row's own corner, its rule dashed and its text set back. The row looks unfinished rather than being labelled unfinished. Least explicit, most quiet.",
@@ -247,15 +257,36 @@ export default function DraftMarkerPrototypes() {
           same three rows — the middle one is the draft.
         </p>
         <p className="text-ink-tertiary mt-2 text-xs">
-          Throwaway, per ADR-0004. This route is deleted once a direction is
-          chosen.
+          Throwaway, per ADR-0004. This route is deleted once every round on
+          #28 is decided. B is chosen; A and C are kept dimmed below only until
+          then.
         </p>
+
+        <div className="border-hairline bg-surface-1 mt-8 flex items-start gap-3 rounded-lg border p-4">
+          <span
+            aria-hidden
+            className="bg-primary-hover mt-0.5 h-4 w-4 shrink-0 rounded-full"
+          />
+          <p className="text-ink-subtle text-sm leading-relaxed">
+            <span className="text-ink font-medium">The fill is the moon.</span>{" "}
+            The chip carries <code className="text-ink-muted">#828fff</code> —
+            the same lavender as the body orbiting inside every Atom, so the two
+            read as one idea. Its text is near-black rather than white: white on
+            this fill measures 2.9:1 and fails WCAG AA at any size, where{" "}
+            <code className="text-ink-muted">canvas</code> on it measures 7.3:1.
+          </p>
+        </div>
 
         <div className="mt-12 grid gap-10 lg:grid-cols-3">
           {DIRECTIONS.map((direction) => (
-            <section key={direction.key}>
-              <h2 className="text-ink text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
+            <section key={direction.key} className={direction.chosen ? "" : "opacity-55"}>
+              <h2 className="text-ink flex items-center gap-2 text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
                 {direction.title}
+                {direction.chosen && (
+                  <span className="bg-primary-hover text-canvas rounded-full px-2 py-0.5 text-[11px] font-medium">
+                    Chosen
+                  </span>
+                )}
               </h2>
               <p className="text-ink-subtle mt-2 mb-5 text-sm leading-relaxed">
                 {direction.blurb}
