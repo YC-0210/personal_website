@@ -44,6 +44,13 @@ _Avoid_: detail panel, modal, popup.
 The lean single-line summary of the selected Atom (label, hours, Connection count) shown on small viewports in place of the full Dossier, leaving the Sphere visible. Opening it leads to the Dossier.
 _Avoid_: mini panel, toast, snackbar.
 
+**Learning State**:
+Where the Owner stands with an Atom: still working through it, or done with it.
+Not Rank — a topic can carry a thousand hours and still be ongoing. It is the
+colour of an Atom's moons: green while still being learned, lavender once
+learned.
+_Avoid_: status, progress, done flag.
+
 **Nameplate**:
 An Atom's label rendered beside its node in the Sphere, always visible, scaled with Rank and dimmed with the selection's emphasis.
 _Avoid_: tag, tooltip, caption.

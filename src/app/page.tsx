@@ -12,6 +12,7 @@ import {
   useHandoffProgress,
 } from "@/components/hero-quote";
 import { OwnerAffordance } from "@/components/owner-affordance";
+import { SphereLegend } from "@/components/sphere-legend";
 import { SphereListView } from "@/components/sphere-list-view";
 import { SphereScene } from "@/components/sphere-scene";
 import { isWebGLSupported } from "@/lib/webgl-support";
@@ -88,7 +89,7 @@ function SceneNotice({ title, detail }: { title: string; detail: string | null }
 }
 
 export default function Home() {
-  const { status, atoms, error, isEditMode } = useSphere();
+  const { status, atoms, error, isEditMode, selectedAtomId } = useSphere();
 
   /**
    * Whether this browser can raise WebGL at all — unknown until after the first
@@ -187,6 +188,10 @@ export default function Home() {
           >
             Articles
           </Link>
+
+          {!showList && atoms.length > 0 && (
+            <SphereLegend isDossierOpen={selectedAtomId !== null} />
+          )}
 
           {!showList && <AtomDetailPanel />}
           <OwnerAffordance />

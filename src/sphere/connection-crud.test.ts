@@ -12,6 +12,7 @@ const typescript: Atom = {
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
   hoursSpent: 400,
+  learningState: "ongoing",
 };
 
 const threeJs: Atom = {
@@ -19,6 +20,7 @@ const threeJs: Atom = {
   label: "Three.js",
   description: "Scene graphs and shaders.",
   hoursSpent: 200,
+  learningState: "ongoing",
 };
 
 const postgres: Atom = {
@@ -26,6 +28,7 @@ const postgres: Atom = {
   label: "Postgres",
   description: "Relational modelling.",
   hoursSpent: 100,
+  learningState: "ongoing",
 };
 
 const typescriptToThree: Connection = {

@@ -1,7 +1,7 @@
 import { connectionTouchesAtom } from "./domain";
 import type {
   Atom,
-  AtomDraft,
+  SettledAtomDraft,
   AtomId,
   Connection,
   ConnectionDraft,
@@ -42,14 +42,14 @@ export class FakeSphereRepository implements SphereRepository {
     };
   }
 
-  async createAtom(draft: AtomDraft): Promise<Atom> {
+  async createAtom(draft: SettledAtomDraft): Promise<Atom> {
     if (this.failure) throw this.failure;
     const atom: Atom = { ...draft, id: `generated-atom-${this.nextId++}` };
     this.atoms.push(atom);
     return { ...atom };
   }
 
-  async updateAtom(atomId: AtomId, draft: AtomDraft): Promise<Atom> {
+  async updateAtom(atomId: AtomId, draft: SettledAtomDraft): Promise<Atom> {
     if (this.failure) throw this.failure;
     const index = this.atoms.findIndex((atom) => atom.id === atomId);
     if (index === -1) throw new Error(`No Atom with id ${atomId}`);

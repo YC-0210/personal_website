@@ -12,6 +12,7 @@ const typescript: Atom = {
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
   hoursSpent: 400,
+  learningState: "ongoing",
 };
 
 async function ownerStore(options?: {
@@ -93,6 +94,7 @@ describe("Owner Atom CRUD", () => {
       label: "Three.js",
       description: "Scene graphs and shaders.",
       hoursSpent: 100,
+      learningState: "ongoing",
     };
     const { repository, store } = await ownerStore({
       atoms: [typescript, three],
@@ -126,6 +128,7 @@ describe("Owner Atom CRUD", () => {
       label: "Three.js",
       description: "Scene graphs and shaders.",
       hoursSpent: 100,
+      learningState: "ongoing",
     };
     const { store } = await ownerStore({ atoms: [typescript, three] });
 
@@ -145,12 +148,14 @@ describe("Owner Atom CRUD", () => {
       label: "Three.js",
       description: "Scene graphs and shaders.",
       hoursSpent: 100,
+      learningState: "ongoing",
     };
     const postgres: Atom = {
       id: "atom-postgres",
       label: "Postgres",
       description: "Relational modelling.",
       hoursSpent: 200,
+      learningState: "ongoing",
     };
     const typescriptToThree: Connection = {
       id: "connection-ts-three",
@@ -194,6 +199,7 @@ describe("Owner Atom CRUD", () => {
       label: "Three.js",
       description: "Scene graphs and shaders.",
       hoursSpent: 100,
+      learningState: "ongoing",
     };
     const { store } = await ownerStore({ atoms: [typescript, three] });
     store.selectAtom(three.id);
@@ -283,5 +289,76 @@ describe("when an Atom write fails", () => {
 
     expect(store.getState().writeError).toBeNull();
     expect(store.getState().atoms).toHaveLength(2);
+  });
+});
+
+/**
+ * Where the Owner is with an Atom — still learning it, or done — drives the
+ * colour of the moons orbiting inside it, so it is data the Sphere reads rather
+ * than a note on the side.
+ */
+describe("An Atom's learning state", () => {
+  it("starts out as still being learned when the Owner does not say", async () => {
+    const { store } = await ownerStore({ atoms: [] });
+
+    await store.addAtom({
+      label: "Rust",
+      description: "Ownership, borrowing, and a lot of fighting.",
+      hoursSpent: 40,
+    });
+
+    expect(store.getState().atoms[0].learningState).toBe("ongoing");
+  });
+
+  it("keeps the state the Owner chose, through a save and a reload", async () => {
+    const { store } = await ownerStore({ atoms: [] });
+
+    await store.addAtom({
+      label: "Latin",
+      description: "Enough to read an inscription.",
+      hoursSpent: 900,
+      learningState: "learned",
+    });
+
+    expect(store.getState().atoms[0].learningState).toBe("learned");
+
+    // Saved, not merely shown: it survives a round-trip through the repository.
+    await store.load();
+    expect(store.getState().atoms[0].learningState).toBe("learned");
+  });
+
+  it("leaves the state alone when an edit does not mention it", async () => {
+    const { store } = await ownerStore({ atoms: [] });
+    await store.addAtom({
+      label: "Latin",
+      description: "Enough to read an inscription.",
+      hoursSpent: 900,
+      learningState: "learned",
+    });
+    const latin = store.getState().atoms[0];
+
+    // Correcting the hours is not a claim about whether the Owner is done.
+    await store.editAtom(latin.id, {
+      label: latin.label,
+      description: latin.description,
+      hoursSpent: 950,
+    });
+
+    expect(store.getAtom(latin.id)?.learningState).toBe("learned");
+  });
+
+  it("moves an Atom from still-learning to learned, and back", async () => {
+    const { store } = await ownerStore();
+    const draft = {
+      label: typescript.label,
+      description: typescript.description,
+      hoursSpent: typescript.hoursSpent,
+    };
+
+    await store.editAtom(typescript.id, { ...draft, learningState: "learned" });
+    expect(store.getAtom(typescript.id)?.learningState).toBe("learned");
+
+    await store.editAtom(typescript.id, { ...draft, learningState: "ongoing" });
+    expect(store.getAtom(typescript.id)?.learningState).toBe("ongoing");
   });
 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { Atom, AtomId } from "@/sphere/domain";
+import { toLearningState, type Atom, type AtomId } from "@/sphere/domain";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
 /**
@@ -58,6 +58,9 @@ export function AtomEditor() {
       label: String(form.get("label") ?? "").trim(),
       description: String(form.get("description") ?? "").trim(),
       hoursSpent: Number(form.get("hoursSpent") ?? 0),
+      // Read through the same normaliser the repository uses, so a value the
+      // form should never produce cannot reach the store either.
+      learningState: toLearningState(form.get("learningState")),
     };
 
     setIsSaving(true);
@@ -208,8 +211,29 @@ export function AtomEditor() {
               step="any"
               required
               defaultValue={subject?.hoursSpent ?? 0}
-              className="border-hairline bg-surface-2 text-ink mb-4 w-full rounded-md border px-3 py-2 text-sm"
+              className="border-hairline bg-surface-2 text-ink mb-3 w-full rounded-md border px-3 py-2 text-sm"
             />
+
+            {/*
+              Where the Owner stands with the topic — not how much time went in.
+              It colours the Atom's moons: green while it is still being worked
+              through, lavender once it is done.
+            */}
+            <label
+              className="text-ink-subtle mb-1 block text-xs"
+              htmlFor="atom-learning-state"
+            >
+              Learning state
+            </label>
+            <select
+              id="atom-learning-state"
+              name="learningState"
+              defaultValue={subject?.learningState ?? "ongoing"}
+              className="border-hairline bg-surface-2 text-ink mb-4 w-full rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="ongoing">Still learning</option>
+              <option value="learned">Learned</option>
+            </select>
 
             {writeError && (
               <p role="alert" className="text-ink-muted mb-3 text-xs">

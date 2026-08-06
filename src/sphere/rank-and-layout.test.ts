@@ -5,7 +5,7 @@ import { FakeSphereRepository } from "./fake-repository";
 import { createSphereStore } from "./store";
 
 function atom(id: string, hoursSpent: number): Atom {
-  return { id, label: id, description: "", hoursSpent };
+  return { id, label: id, description: "", hoursSpent, learningState: "ongoing" };
 }
 
 async function sphereOf(atoms: Atom[]) {

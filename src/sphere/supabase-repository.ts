@@ -1,18 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getSupabaseClient } from "@/lib/supabase-client";
-import type {
-  Atom,
-  AtomDraft,
-  AtomId,
-  Connection,
-  ConnectionDraft,
-  ConnectionId,
-  SphereSnapshot,
+import {
+  toLearningState,
+  type Atom,
+  type AtomId,
+  type Connection,
+  type ConnectionDraft,
+  type ConnectionId,
+  type SettledAtomDraft,
+  type SphereSnapshot,
 } from "./domain";
 import type { SphereRepository } from "./repository";
 
-const ATOM_COLUMNS = "id, label, description, hours_spent";
+const ATOM_COLUMNS = "id, label, description, hours_spent, learning_state";
 const CONNECTION_COLUMNS =
   "id, from_atom_id, to_atom_id, strength, description, external_link";
 
@@ -21,6 +22,7 @@ interface AtomRow {
   label: string;
   description: string;
   hours_spent: number | string;
+  learning_state: string | null;
 }
 
 interface ConnectionRow {
@@ -38,14 +40,18 @@ function toAtom(row: AtomRow): Atom {
     label: row.label,
     description: row.description,
     hoursSpent: Number(row.hours_spent),
+    // Normalised rather than cast: a row written before the column existed, or
+    // anything unrecognised, reads as still-being-learned.
+    learningState: toLearningState(row.learning_state),
   };
 }
 
-function fromAtomDraft(draft: AtomDraft) {
+function fromAtomDraft(draft: SettledAtomDraft) {
   return {
     label: draft.label,
     description: draft.description,
     hours_spent: draft.hoursSpent,
+    learning_state: draft.learningState,
   };
 }
 
@@ -120,7 +126,7 @@ export class SupabaseSphereRepository implements SphereRepository {
     };
   }
 
-  async createAtom(draft: AtomDraft): Promise<Atom> {
+  async createAtom(draft: SettledAtomDraft): Promise<Atom> {
     const { data, error } = await this.resolveClient()
       .from("atoms")
       .insert(fromAtomDraft(draft))
@@ -131,7 +137,7 @@ export class SupabaseSphereRepository implements SphereRepository {
     return toAtom(data as AtomRow);
   }
 
-  async updateAtom(atomId: AtomId, draft: AtomDraft): Promise<Atom> {
+  async updateAtom(atomId: AtomId, draft: SettledAtomDraft): Promise<Atom> {
     const { data, error } = await this.resolveClient()
       .from("atoms")
       .update(fromAtomDraft(draft))

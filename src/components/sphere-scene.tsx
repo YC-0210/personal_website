@@ -81,7 +81,18 @@ const LATTICE_CORE_SCALE = 0.5;
  * bounded by the Atom by construction — see `atom-moon.ts` for why that matters.
  */
 const MOON_SIZE = 0.13;
-const MOON_COLOR = new THREE.Color("#828fff");
+
+/**
+ * The moons carry the Atom's learning state as colour: `primary-hover` for a
+ * topic the Owner is done with, `semantic-success` for one still being worked
+ * through. Green is the palette's single semantic colour — DESIGN.md sanctions
+ * it for exactly this and nothing else, so it stays off everything but these.
+ *
+ * Count is Rank, colour is state: the two say different things and neither can
+ * be read off the other.
+ */
+const MOON_LEARNED_COLOR = new THREE.Color("#828fff");
+const MOON_ONGOING_COLOR = new THREE.Color("#27a644");
 const SHELL_OPACITY = 0.5;
 const SHELL_SELECTED_OPACITY = 0.85;
 const SHELL_DIM_OPACITY = 0.12;
@@ -335,7 +346,14 @@ function AtomNodes() {
             >
               {Array.from({ length: moonCount(atom.hoursSpent) }, (_, moon) => (
                 <mesh key={moon} geometry={coreGeometry} scale={MOON_SIZE}>
-                  <meshBasicMaterial color={MOON_COLOR} transparent />
+                  <meshBasicMaterial
+                    color={
+                      atom.learningState === "learned"
+                        ? MOON_LEARNED_COLOR
+                        : MOON_ONGOING_COLOR
+                    }
+                    transparent
+                  />
                 </mesh>
               ))}
             </group>

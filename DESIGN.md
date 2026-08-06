@@ -305,6 +305,7 @@ The page rhythm is **dense product screenshots** — Linear's marketing leads wi
 
 ### Semantic
 - **Success Green** ({colors.semantic-success}): Status pills, success indicators. The only semantic color on marketing.
+  - **In this project** it carries one meaning and no other: an Atom still being learned. Its moons are drawn in it; a learned Atom's are `{colors.primary-hover}`. It appears nowhere else.
 - **Overlay** ({colors.semantic-overlay}): Pure black overlay scrim for modals.
 
 ## Typography
@@ -493,6 +494,7 @@ Linear's depth is carried by surface ladder + hairline borders. The brand resist
 
 - Don't ship a light-mode marketing page.
 - Don't use lavender as a section background or card fill.
+  - **One documented exception**: the `Draft` chip on a bonded Article in an Atom's Dossier is filled with `{colors.primary-hover}`, deliberately, so it reads as the same colour as the moon turning inside the Atom. Its label is `{colors.canvas}`, not white — white on that fill measures 2.9:1 and fails WCAG AA at any size, where `{colors.canvas}` measures 7.3:1.
 - Don't introduce a second chromatic accent (orange, pink, green for marketing).
 - Don't add atmospheric gradients or spotlight cards.
 - Don't pill-round CTAs.
