@@ -11,11 +11,20 @@ import Link from "next/link";
 
 const ROUNDS = [
   {
+    href: "/proto/writing-surface",
+    issue: "#28",
+    title: "The writing surface",
+    blurb:
+      "Round 2, and the one still open. A full page to write an Article on, in three genuinely different shapes — all of them the real editor, so they can be typed into rather than looked at.",
+    state: "OPEN",
+  },
+  {
     href: "/proto/draft-marker",
     issue: "#28",
     title: "Marking a draft in an Atom's Dossier",
     blurb:
       "Bonding happens the moment writing starts, so the Dossier lists drafts beside published Articles — and only the Owner sees them. Three ways a row can say “not finished”.",
+    state: "DECIDED · B, the named state",
   },
 ];
 
@@ -40,7 +49,7 @@ export default function ProtoIndex() {
             <li key={round.href} className="border-hairline border-t">
               <Link href={round.href} className="group block py-5">
                 <span className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]">
-                  ISSUE {round.issue}
+                  ISSUE {round.issue} · {round.state}
                 </span>
                 <span className="text-ink group-hover:text-primary-hover mt-1 block text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
                   {round.title}
