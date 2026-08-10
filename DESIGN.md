@@ -305,7 +305,7 @@ The page rhythm is **dense product screenshots** — Linear's marketing leads wi
 
 ### Semantic
 - **Success Green** ({colors.semantic-success}): Status pills, success indicators. The only semantic color on marketing.
-  - **In this project** it carries one meaning and no other: an Atom still being learned. Its moons are drawn in it; a learned Atom's are `{colors.primary-hover}`. It appears nowhere else.
+  - **In this project** it carries one meaning and no other: **done**. A learned Atom's moons are drawn in it; an Atom still being learned carries `{colors.primary-hover}`, the site's in-progress colour. It appears nowhere else. This is the direction the token already points — green is defined above as a *success* indicator, so "done" costs nothing to accommodate.
 - **Overlay** ({colors.semantic-overlay}): Pure black overlay scrim for modals.
 
 ## Typography

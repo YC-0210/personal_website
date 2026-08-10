@@ -47,7 +47,7 @@ _Avoid_: mini panel, toast, snackbar.
 **Learning State**:
 Where the Owner stands with an Atom: still working through it, or done with it.
 Not Rank — a topic can carry a thousand hours and still be ongoing. It is the
-colour of an Atom's moons: green while still being learned, lavender once
+colour of an Atom's moons: lavender while still being learned, green once
 learned.
 _Avoid_: status, progress, done flag.
 

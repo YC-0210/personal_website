@@ -24,8 +24,8 @@ export function SphereLegend({ isDossierOpen }: { isDossierOpen: boolean }) {
       <p className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]">
         MOONS
       </p>
-      <Key colour="#27a644" label="Still learning" />
-      <Key colour="#828fff" label="Learned" />
+      <Key colour="#828fff" label="Still learning" />
+      <Key colour="#27a644" label="Learned" />
     </div>
   );
 }
