@@ -47,9 +47,18 @@ export class FakeArticleRepository implements ArticleRepository {
       ...draft,
       id: `generated-article-${this.nextId++}`,
       deletedAt: null,
+      // A new Article is a draft. Publishing is its own call.
+      publishedAt: null,
     };
     this.articles.push(article);
     return { ...article };
+  }
+
+  async publishArticle(articleId: ArticleId): Promise<Article> {
+    return this.rewrite(articleId, (article) => ({
+      ...article,
+      publishedAt: this.now,
+    }));
   }
 
   async updateArticle(
@@ -98,6 +107,15 @@ export class FakeArticleRepository implements ArticleRepository {
     };
     this.bondings.push(bonding);
     return { ...bonding };
+  }
+
+  async updateBonding(bondingId: BondingId, name: string): Promise<Bonding> {
+    if (this.failure) throw this.failure;
+    const index = this.bondings.findIndex((bonding) => bonding.id === bondingId);
+    if (index === -1) throw new Error(`No Bonding with id ${bondingId}`);
+
+    this.bondings[index] = { ...this.bondings[index], name };
+    return { ...this.bondings[index] };
   }
 
   async deleteBonding(bondingId: BondingId): Promise<void> {

@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { ArticleEditor } from "@/components/article-editor";
+import { excerptOf } from "@/articles/article-body";
+import { EMPTY_BODY } from "@/articles/article-body";
 import type { ArticleId } from "@/articles/domain";
 import { getArticleStore, useArticles } from "@/articles/use-articles";
+import { DraftBadge } from "@/components/draft-badge";
 
 /**
  * The Articles page.
@@ -18,10 +21,24 @@ import { getArticleStore, useArticles } from "@/articles/use-articles";
 export default function ArticlesPage() {
   const { status, isEditMode, error, writeError } = useArticles();
   const store = getArticleStore();
+  const router = useRouter();
 
-  const [writing, setWriting] = useState<"none" | "new" | ArticleId>("none");
   /** The Article a delete is pending on — the two-step `AtomEditor` uses. */
   const [deletingId, setDeletingId] = useState<ArticleId | null>(null);
+
+  /**
+   * Starting an Article creates the draft first and then opens it: the editor
+   * is always `/articles/<id>/edit`, so there is no "new Article" route to hold
+   * unsaved text (decision 10 on #28).
+   */
+  async function startWriting() {
+    try {
+      const id = await store.addArticle({ title: "Untitled", body: EMPTY_BODY });
+      router.push(`/articles/${id}/edit`);
+    } catch {
+      // `writeError` carries the reason; the page stays as it was.
+    }
+  }
 
   const articles = store.articles();
   const trashCount = store.trash().length;
@@ -58,7 +75,7 @@ export default function ArticlesPage() {
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setWriting("new")}
+            onClick={() => void startWriting()}
             className="bg-primary text-on-primary hover:bg-primary-hover rounded-md px-3.5 py-1.5 text-sm font-medium"
           >
             Write Article
@@ -96,11 +113,14 @@ export default function ArticlesPage() {
         {articles.map((article) => (
           <li key={article.id} className="border-hairline border-t py-4">
             <Link href={`/articles/${article.id}`} className="group block">
-              <h2 className="text-ink group-hover:text-primary-hover text-lg font-medium tracking-[-0.01em]">
+              <h2 className="text-ink group-hover:text-primary-hover flex flex-wrap items-center gap-2 text-lg font-medium tracking-[-0.01em]">
                 {article.title}
+                {/* Only ever rendered for the Owner — a Visitor's list cannot
+                    contain a draft to badge. */}
+                {article.publishedAt === null && <DraftBadge />}
               </h2>
               <p className="text-ink-subtle mt-1 line-clamp-2 text-sm leading-relaxed">
-                {article.body}
+                {excerptOf(article.body)}
               </p>
             </Link>
 
@@ -128,13 +148,12 @@ export default function ArticlesPage() {
                   </>
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setWriting(article.id)}
+                    <Link
+                      href={`/articles/${article.id}/edit`}
                       className="border-hairline bg-surface-1 text-ink-subtle hover:bg-surface-2 hover:text-ink rounded-md border px-2.5 py-1 font-medium"
                     >
                       Edit
-                    </button>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setDeletingId(article.id)}
@@ -149,13 +168,6 @@ export default function ArticlesPage() {
           </li>
         ))}
       </ul>
-
-      {writing !== "none" && (
-        <ArticleEditor
-          article={writing === "new" ? undefined : store.getArticle(writing)}
-          onClose={() => setWriting("none")}
-        />
-      )}
     </main>
   );
 }

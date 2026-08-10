@@ -23,6 +23,12 @@ export interface ArticleRepository {
 
   updateArticle(articleId: ArticleId, draft: ArticleDraft): Promise<Article>;
 
+  /**
+   * Publish a draft. Stamps `publishedAt`; separate from `updateArticle`
+   * precisely so that saving cannot publish by accident (ADR-0008).
+   */
+  publishArticle(articleId: ArticleId): Promise<Article>;
+
   /** Move an Article to the Trash. The row stays; `deletedAt` is stamped. */
   trashArticle(articleId: ArticleId): Promise<Article>;
 
@@ -40,6 +46,9 @@ export interface ArticleRepository {
 
   /** Persist a new Bonding and return it with its assigned id. */
   createBonding(draft: BondingDraft): Promise<Bonding>;
+
+  /** Reword what a Bonding says. Neither the Article nor the Atom moves. */
+  updateBonding(bondingId: BondingId, name: string): Promise<Bonding>;
 
   /** Unbond an Article from an Atom. Neither of them is touched. */
   deleteBonding(bondingId: BondingId): Promise<void>;

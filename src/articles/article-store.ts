@@ -3,6 +3,7 @@ import {
   type AuthProvider,
   type OwnerSession,
 } from "@/sphere/auth";
+import { EMPTY_BODY } from "./article-body";
 import type {
   Article,
   ArticleDraft,
@@ -12,6 +13,9 @@ import type {
   BondingId,
 } from "./domain";
 import type { ArticleRepository } from "./repository";
+
+/** What a draft is called before the Owner has titled it. */
+const UNTITLED = "Untitled";
 
 export type ArticleStatus = "idle" | "loading" | "ready" | "error";
 
@@ -49,8 +53,10 @@ const EMPTY_STATE: ArticleState = {
  * Owns Article state and is the only place that talks to the Article
  * repository — the same shape as the Sphere store, for the same reasons.
  *
- * Articles publish on save. There is no draft/publish step, exactly as there is
- * none for Atoms and Connections; see ADR-0006.
+ * An Article is written as a draft and published deliberately — ADR-0008, which
+ * amends ADR-0006's publish-on-save. `deletedAt` and `publishedAt` are two
+ * independent axes, so every read path here says which side of *both* it wants
+ * rather than leaving one implied.
  */
 export class ArticleStore {
   private state: ArticleState = EMPTY_STATE;
@@ -89,32 +95,64 @@ export class ArticleStore {
     }
   }
 
-  /** What a Visitor reads: every Article that is not in the Trash. */
+  /**
+   * The Articles the reader in front of us may read: out of the Trash, and
+   * published unless that reader is the Owner, who also sees their own drafts
+   * so they can be finished.
+   *
+   * Both axes are answered here deliberately — `deletedAt` and `publishedAt`
+   * are independent, so "not deleted" is only half an answer (ADR-0008). For a
+   * Visitor the drafts never left the database anyway; this is the near side of
+   * the RLS policy, not a substitute for it.
+   */
   articles(): Article[] {
-    return this.state.articles.filter((article) => article.deletedAt === null);
+    return this.state.articles.filter(
+      (article) =>
+        article.deletedAt === null &&
+        (article.publishedAt !== null || this.readsDrafts()),
+    );
   }
 
   /**
-   * One Article to read in full. A trashed Article is not readable by id
-   * either — the Trash is a way out of the site, not just off the list.
+   * One Article to read in full, under exactly the rule `articles()` uses: a
+   * trashed one is not readable by id either, and neither is someone else's
+   * draft — the Trash is a way out of the site, and a draft has not entered it.
    */
   getArticle(articleId: ArticleId): Article | undefined {
     return this.articles().find((article) => article.id === articleId);
   }
 
-  /** Write a new Article. It is public the moment this resolves. */
-  async addArticle(draft: ArticleDraft): Promise<void> {
+  /**
+   * Start an Article. It is saved as a draft and nobody but the Owner can read
+   * it; publishing is a separate act. The id comes back because the draft
+   * exists before the writing does — the editor is always `/articles/<id>/edit`.
+   */
+  async addArticle(draft: ArticleDraft): Promise<ArticleId> {
+    let articleId = "";
     await this.write(async () => {
       const article = await this.repository.createArticle(draft);
+      articleId = article.id;
       this.setState({ articles: [...this.state.articles, article] });
     });
+    return articleId;
   }
 
-  /** Rewrite an Article. The change is public as soon as it saves. */
+  /**
+   * Rewrite an Article. This is what autosave calls, so it must never change
+   * whether the Article is published — a draft stays a draft however many times
+   * it is saved, which is the whole point of ADR-0008.
+   */
   async editArticle(articleId: ArticleId, draft: ArticleDraft): Promise<void> {
     await this.write(async () => {
       const saved = await this.repository.updateArticle(articleId, draft);
       this.replace(saved);
+    });
+  }
+
+  /** Publish a draft. The one deliberate act that makes writing public. */
+  async publishArticle(articleId: ArticleId): Promise<void> {
+    await this.write(async () => {
+      this.replace(await this.repository.publishArticle(articleId));
     });
   }
 
@@ -167,7 +205,7 @@ export class ArticleStore {
    */
   async addBonding(draft: BondingDraft): Promise<void> {
     await this.write(async () => {
-      requireBondingName(draft);
+      requireBondingName(draft.name);
 
       // One pair, one Bonding — the schema enforces it with a unique index, and
       // catching it here turns a constraint name into a sentence. Saying the
@@ -183,6 +221,60 @@ export class ArticleStore {
 
       const bonding = await this.repository.createBonding(draft);
       this.setState({ bondings: [...this.state.bondings, bonding] });
+    });
+  }
+
+  /**
+   * Start an Article from an Atom: one gesture, one draft, one Bonding.
+   *
+   * The Bonding is made now rather than at publish (decision 6 on #28) — an
+   * "intended Atom" converted later would be a second, parallel concept that
+   * skips the Name invariant and adds a step that can fail. What keeps the
+   * draft's bond off a Visitor's Dossier is the read rule, not its absence.
+   */
+  async startArticleBondedTo(bond: {
+    atomId: string;
+    name: string;
+  }): Promise<ArticleId> {
+    let articleId = "";
+    await this.write(async () => {
+      // Before anything is written: a nameless bond must not leave an untitled
+      // draft stranded behind it, which is what makes this one gesture and not
+      // two that can half-fail.
+      requireBondingName(bond.name);
+
+      const article = await this.repository.createArticle({
+        title: UNTITLED,
+        body: EMPTY_BODY,
+      });
+      const bonding = await this.repository.createBonding({
+        articleId: article.id,
+        atomId: bond.atomId,
+        name: bond.name,
+      });
+
+      articleId = article.id;
+      this.setState({
+        articles: [...this.state.articles, article],
+        bondings: [...this.state.bondings, bonding],
+      });
+    });
+    return articleId;
+  }
+
+  /**
+   * Reword a Bonding. The Article and the Atom are untouched — this changes
+   * only the sentence that says how one feeds into the other.
+   */
+  async editBonding(bondingId: BondingId, name: string): Promise<void> {
+    await this.write(async () => {
+      requireBondingName(name);
+      const saved = await this.repository.updateBonding(bondingId, name);
+      this.setState({
+        bondings: this.state.bondings.map((bonding) =>
+          bonding.id === saved.id ? saved : bonding,
+        ),
+      });
     });
   }
 
@@ -258,6 +350,14 @@ export class ArticleStore {
     }
   }
 
+  /**
+   * Whether the reader may see drafts at all. Only the Owner may, and only
+   * because they wrote them — this is not a permission the UI can pass in.
+   */
+  private readsDrafts(): boolean {
+    return this.state.owner !== null;
+  }
+
   /** Put the saved form of an Article back in place of the one held. */
   private replace(saved: Article): void {
     this.setState({
@@ -280,8 +380,8 @@ export class ArticleStore {
  *
  * Enforced here rather than only in the form, so no caller can route around it.
  */
-function requireBondingName(draft: BondingDraft): void {
-  if (draft.name.trim() === "") {
+function requireBondingName(name: string): void {
+  if (name.trim() === "") {
     throw new Error(
       "A Bonding needs a Name: how this Atom feeds into this Article.",
     );

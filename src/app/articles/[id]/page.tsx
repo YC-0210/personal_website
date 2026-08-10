@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { getArticleStore, useArticles } from "@/articles/use-articles";
+import { ArticleBodyView } from "@/components/article-body-view";
+import { DraftBadge } from "@/components/draft-badge";
 import { atomLink } from "@/sphere/atom-link";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -62,10 +64,22 @@ export default function ArticlePage() {
           <h1 className="text-ink text-[28px] leading-[1.15] font-semibold tracking-[-0.6px] text-balance">
             {article.title}
           </h1>
-          {/* Plain text, deliberately: the body is what the Owner typed. */}
-          <div className="text-ink-muted mt-6 text-base leading-[1.7] whitespace-pre-wrap">
-            {article.body}
-          </div>
+
+          {/* Only the Owner can be here to see this: a draft is refused to a
+              Visitor by RLS long before the page renders. */}
+          {article.publishedAt === null && (
+            <p className="mt-3 flex flex-wrap items-center gap-3">
+              <DraftBadge />
+              <Link
+                href={`/articles/${article.id}/edit`}
+                className="text-ink-subtle hover:text-primary-hover text-sm font-medium"
+              >
+                Keep writing →
+              </Link>
+            </p>
+          )}
+          {/* Rendered from the stored document — no HTML string in between. */}
+          <ArticleBodyView body={article.body} className="mt-6" />
 
           {bondedAtoms.length > 0 && (
             <section className="mt-12">
