@@ -494,7 +494,7 @@ Linear's depth is carried by surface ladder + hairline borders. The brand resist
 
 - Don't ship a light-mode marketing page.
 - Don't use lavender as a section background or card fill.
-  - **One documented exception**: the `Draft` chip on a bonded Article in an Atom's Dossier is filled with `{colors.primary-hover}`, deliberately, so it reads as the same colour as the moon turning inside the Atom. Its label is `{colors.canvas}`, not white — white on that fill measures 2.9:1 and fails WCAG AA at any size, where `{colors.canvas}` measures 7.3:1.
+  - **One documented exception**: the `▶ Draft` badge on an unpublished Article — a `status-badge`, filled with `{colors.primary-hover}` rather than the component's usual `{colors.surface-2}`. Deliberate: it reads as the same colour as the moon turning inside an Atom still being learned, which is the site's one meaning for lavender. Its label is `{colors.canvas}`, not white — white on that fill measures 2.9:1 and fails WCAG AA at any size, where `{colors.canvas}` measures 7.3:1. It appears wherever an Article's title does while it is still a Draft: the Atom's Dossier row, the Articles list, and the Article's own page.
 - Don't introduce a second chromatic accent (orange, pink, green for marketing).
 - Don't add atmospheric gradients or spotlight cards.
 - Don't pill-round CTAs.

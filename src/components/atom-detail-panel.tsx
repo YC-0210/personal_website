@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { getArticleStore, useArticles } from "@/articles/use-articles";
+import { useArticles } from "@/articles/use-articles";
+import { AtomArticles } from "@/components/atom-articles";
 import type { AtomDetail } from "@/sphere/store";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -66,31 +66,7 @@ export function AtomDetailPanel() {
   // Read off `shown` rather than `detail`, so the list stays put while the card
   // slides out instead of emptying first — the same rule the rest of the card
   // follows.
-  const bondedArticles = getArticleStore().bondedArticles(shown.atom.id);
-
-  const bondedArticleRows = bondedArticles.length > 0 && (
-    <>
-      <p className="text-ink-tertiary mt-8 text-[13px] font-medium tracking-[0.4px]">
-        WRITTEN ABOUT · {bondedArticles.length}
-      </p>
-      <div className="mt-2 flex flex-col">
-        {bondedArticles.map(({ article, bonding }) => (
-          <Link
-            key={bonding.id}
-            href={`/articles/${article.id}`}
-            className="border-hairline hover:bg-primary-hover/5 group flex flex-col gap-1 border-t py-3"
-          >
-            <span className="text-ink-muted text-sm leading-relaxed">
-              {bonding.name}
-            </span>
-            <span className="text-ink-subtle group-hover:text-primary-hover text-xs">
-              → {article.title}
-            </span>
-          </Link>
-        ))}
-      </div>
-    </>
-  );
+  const bondedArticleRows = <AtomArticles atomId={shown.atom.id} />;
 
   const connectionRows = (
     <div className="mt-2 flex flex-col">

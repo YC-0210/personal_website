@@ -16,12 +16,41 @@ export const CONNECTIONS = [
   { id: "c2", from_atom_id: "a2", to_atom_id: "a3", strength: 0.6, description: "Econometrics", external_link: null },
 ];
 
+/** Bodies are Tiptap documents now, not strings — decision 8 on #28. */
+const doc = (text: string) => ({
+  type: "doc",
+  content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+});
+
+/**
+ * One published Article and one Draft, both bonded to the same Atom. The pair is
+ * the point: the Draft is what a Visitor must not reach by either read path.
+ *
+ * The stub does not enforce RLS — it hands out both rows to anyone, exactly as
+ * it hands the Owner's rows to a Visitor. That is deliberate. What keeps the
+ * Draft off a Visitor's screen *here* is the store's own read rule, so these
+ * tests hold that rule rather than the database's identical one.
+ */
 export const ARTICLES = [
-  { id: "art1", title: "On borrowed metaphors", body: "Economics took its mechanics from physics.", deleted_at: null },
+  {
+    id: "art1",
+    title: "On borrowed metaphors",
+    body: doc("Economics took its mechanics from physics."),
+    deleted_at: null,
+    published_at: "2026-08-01T00:00:00Z",
+  },
+  {
+    id: "art2",
+    title: "Half a thought",
+    body: doc("Not finished yet."),
+    deleted_at: null,
+    published_at: null,
+  },
 ];
 
 export const BONDINGS = [
   { id: "b1", article_id: "art1", atom_id: "a1", name: "How classical physics connects to economics" },
+  { id: "b2", article_id: "art2", atom_id: "a1", name: "What the draft owes this Atom" },
 ];
 
 /** Answer every Supabase read from the fixtures above. No project, no secrets. */
