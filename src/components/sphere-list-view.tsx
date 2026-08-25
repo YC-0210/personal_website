@@ -1,6 +1,6 @@
 "use client";
 
-import type { AtomId } from "@/sphere/domain";
+import { atomAnchor } from "@/sphere/atom-link";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
 /**
@@ -110,8 +110,4 @@ export function SphereListView() {
       </div>
     </section>
   );
-}
-
-function atomAnchor(atomId: AtomId): string {
-  return `atom-${atomId}`;
 }

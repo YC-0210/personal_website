@@ -16,6 +16,7 @@ const typescript: Atom = {
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
   hoursSpent: 400,
+  learningState: "ongoing",
 };
 
 const threeJs: Atom = {
@@ -23,6 +24,7 @@ const threeJs: Atom = {
   label: "Three.js",
   description: "Scene graphs and shaders.",
   hoursSpent: 120,
+  learningState: "ongoing",
 };
 
 const postgres: Atom = {
@@ -30,6 +32,7 @@ const postgres: Atom = {
   label: "Postgres",
   description: "Relational modelling.",
   hoursSpent: 200,
+  learningState: "ongoing",
 };
 
 const typescriptToThree: Connection = {
@@ -95,12 +98,14 @@ describe("sphereIndex", () => {
       label: "Zig",
       description: "Manual memory, no hidden control flow.",
       hoursSpent: 150,
+      learningState: "ongoing",
     };
     const elixir: Atom = {
       id: "atom-elixir",
       label: "Elixir",
       description: "Processes all the way down.",
       hoursSpent: 150,
+      learningState: "ongoing",
     };
     const store = createSphereStore(
       new FakeSphereRepository({ atoms: [zig, elixir], connections: [] }),

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-import { moonOrbit } from "@/sphere/atom-moon";
+import { moonCount, moonOrbit } from "@/sphere/atom-moon";
 import type { AtomId, ConnectionId } from "@/sphere/domain";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -32,8 +32,26 @@ const SIGNAL_COLOR = new THREE.Color("#828fff");
 /** Radius the Atoms will eventually be placed on. */
 const SPHERE_RADIUS = 1;
 
+/**
+ * The three rates the visitor's hands feel, chosen by the Owner on a temporary
+ * slider panel run over the live scene rather than picked by eye.
+ *
+ * The wheel was the one that read as too fast — it now travels at a little
+ * under half its old rate. The drag came down a touch with it; the idle drift
+ * and the glide were already right and did not move.
+ */
+
 /** Degrees per second of idle drift. Slow enough to read as "alive", not "spinning". */
 const AUTO_ROTATE_SPEED = 0.35;
+
+/** Drag-to-orbit rate. */
+const ROTATE_SPEED = 0.5;
+
+/** Wheel/pinch dolly rate. Was the OrbitControls default of 1, which overshot. */
+const ZOOM_SPEED = 0.45;
+
+/** How quickly a throw comes to rest. Lower drifts further. */
+const DAMPING_FACTOR = 0.08;
 
 /** How long after the visitor lets go before the idle drift resumes. */
 const RESUME_IDLE_AFTER_MS = 2500;
@@ -63,7 +81,20 @@ const LATTICE_CORE_SCALE = 0.5;
  * bounded by the Atom by construction — see `atom-moon.ts` for why that matters.
  */
 const MOON_SIZE = 0.13;
-const MOON_COLOR = new THREE.Color("#828fff");
+
+/**
+ * The moons carry the Atom's learning state as colour: `primary-hover` for a
+ * topic still being worked through, `semantic-success` for one the Owner is
+ * done with. Green is the palette's single semantic colour, and DESIGN.md
+ * already defines it as a *success* indicator — "done" is what the token means
+ * on its own, so nothing has to be stretched to fit. Lavender is the site's
+ * in-progress colour, and it is the same lavender the Draft badge carries.
+ *
+ * Count is Rank, colour is state: the two say different things and neither can
+ * be read off the other.
+ */
+const MOON_ONGOING_COLOR = new THREE.Color("#828fff");
+const MOON_LEARNED_COLOR = new THREE.Color("#27a644");
 const SHELL_OPACITY = 0.5;
 const SHELL_SELECTED_OPACITY = 0.85;
 const SHELL_DIM_OPACITY = 0.12;
@@ -88,6 +119,20 @@ const CAMERA_IDLE_EASE = 2.2;
 /** A Connection's own brightness carries its Strength, and nothing else. */
 const LINE_BASE_BRIGHTNESS = 0.1;
 const LINE_STRENGTH_BRIGHTNESS = 0.2;
+
+/**
+ * How much of that brightness each emphasis spends.
+ *
+ * The store gives Connections three states, not two, and the difference
+ * between them is the whole selection gesture: at rest the Sphere shows how
+ * its Atoms relate, and selecting one lifts its own Connections *above* that
+ * resting level while pushing the rest below it. Reading only "highlighted"
+ * here collapsed neutral onto dimmed and left the Sphere with no visible
+ * Connections at all until something was clicked.
+ */
+const LINE_LEVEL_HIGHLIGHTED = 1;
+const LINE_LEVEL_NEUTRAL = 0.34;
+const LINE_LEVEL_DIMMED = 0.09;
 
 /**
  * How many signals a Connection runs is the far Atom's Rank — the busiest
@@ -242,17 +287,27 @@ function AtomNodes() {
             (SHELL_SPIN_BASE + (index % 5) * SHELL_SPIN_STEP);
       }
 
-      const moon = node.getObjectByName("moon") as THREE.Mesh | undefined;
-      if (moon) {
+      const moons = node.getObjectByName("moons");
+      if (moons) {
         const { radius, speed } = moonOrbit(placement.rank);
-        // Reduced motion holds the moon at a fixed point on its orbit: the
-        // radius still carries Rank, it just stops travelling.
-        const angle = reducedMotion ? index : state.clock.elapsedTime * speed + index;
-        moon.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
-
-        const moonMaterial = moon.material as THREE.MeshBasicMaterial;
+        // Reduced motion holds the moons at fixed points on their orbit: the
+        // radius still carries Rank and the count still carries hours, they
+        // just stop travelling.
+        const travel = reducedMotion
+          ? index
+          : state.clock.elapsedTime * speed + index;
         const moonOpacity = isDimmed ? DIM_OPACITY : 1;
-        moonMaterial.opacity += (moonOpacity - moonMaterial.opacity) * step;
+
+        moons.children.forEach((moon, position) => {
+          // Spread evenly round the one orbit, so the count can be taken at a
+          // glance. Bunched moons read as one smeared moon.
+          const angle = travel + (position / moons.children.length) * Math.PI * 2;
+          moon.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+
+          const moonMaterial = (moon as THREE.Mesh)
+            .material as THREE.MeshBasicMaterial;
+          moonMaterial.opacity += (moonOpacity - moonMaterial.opacity) * step;
+        });
       }
     });
   });
@@ -281,10 +336,28 @@ function AtomNodes() {
             <mesh name="core" geometry={coreGeometry} scale={LATTICE_CORE_SCALE}>
               <meshBasicMaterial color={ATOM_COLOR} transparent />
             </mesh>
-            <group rotation={[Math.PI / 2.4 + (index % 4) * 0.2, (index % 6) * 0.5, 0]}>
-              <mesh name="moon" geometry={coreGeometry} scale={MOON_SIZE}>
-                <meshBasicMaterial color={MOON_COLOR} transparent />
-              </mesh>
+            {/*
+              One orbit per Atom, tilted its own way, carrying a moon for every
+              whole 250 hours devoted to it — so an Atom under its first 250
+              orbits empty. They share the plane so the count reads as a count
+              rather than as several unrelated bodies.
+            */}
+            <group
+              name="moons"
+              rotation={[Math.PI / 2.4 + (index % 4) * 0.2, (index % 6) * 0.5, 0]}
+            >
+              {Array.from({ length: moonCount(atom.hoursSpent) }, (_, moon) => (
+                <mesh key={moon} geometry={coreGeometry} scale={MOON_SIZE}>
+                  <meshBasicMaterial
+                    color={
+                      atom.learningState === "learned"
+                        ? MOON_LEARNED_COLOR
+                        : MOON_ONGOING_COLOR
+                    }
+                    transparent
+                  />
+                </mesh>
+              ))}
             </group>
             <mesh
               name="shell"
@@ -378,6 +451,8 @@ interface ConnectionEnds {
   /** Rank of the Atom at the far end, which sets how much signal runs here. */
   farRank: number;
   isHighlighted: boolean;
+  /** Set only when *another* Atom is selected — not the same as "not highlighted". */
+  isDimmed: boolean;
 }
 
 /**
@@ -406,6 +481,7 @@ function useConnectionEnds(): ConnectionEnds[] {
         end: new THREE.Vector3(...far.position),
         farRank: far.rank,
         isHighlighted: emphasis.connections[connection.id] === "highlighted",
+        isDimmed: emphasis.connections[connection.id] === "dimmed",
       });
     }
 
@@ -416,18 +492,18 @@ function useConnectionEnds(): ConnectionEnds[] {
 /**
  * One line per Connection, between its two Atoms.
  *
- * At rest the lines are drawn but unlit — the Sphere reads as a field of Atoms.
- * Selecting an Atom grows its Connections outward from it, at a brightness that
- * carries their Strength.
+ * At rest every Connection is drawn at its resting weight, so the Sphere shows
+ * how the Atoms relate before anything is clicked. Selecting an Atom lifts the
+ * Connections touching it to full brightness and pushes the rest well below
+ * resting — the light moves, the lines do not come and go.
+ *
+ * Brightness is the only thing that changes, and it carries Strength at every
+ * level, so a strong Connection reads as strong whether it is lit or at rest.
  */
 function ConnectionLines() {
   const ends = useConnectionEnds();
-  const progress = useRef(new Map<ConnectionId, number>());
-  /**
-   * The end a Connection was last drawn from. A Connection released by the
-   * selection retracts the way it grew rather than flipping ends mid-fade.
-   */
-  const drawnFrom = useRef(new Map<ConnectionId, ConnectionEnds>());
+  /** Eased brightness level per Connection, so emphasis changes fade. */
+  const level = useRef(new Map<ConnectionId, number>());
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
 
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
@@ -452,30 +528,37 @@ function ConnectionLines() {
     const step = reducedMotion ? 1 : 1 - Math.exp(-delta * LINE_EASE);
 
     ends.forEach((connection, index) => {
-      if (connection.isHighlighted) drawnFrom.current.set(connection.id, connection);
-      const drawnAs = drawnFrom.current.get(connection.id) ?? connection;
+      const target = connection.isHighlighted
+        ? LINE_LEVEL_HIGHLIGHTED
+        : connection.isDimmed
+          ? LINE_LEVEL_DIMMED
+          : LINE_LEVEL_NEUTRAL;
 
-      const target = connection.isHighlighted ? 1 : 0;
-      const drawn =
-        (progress.current.get(connection.id) ?? 0) +
-        (target - (progress.current.get(connection.id) ?? 0)) * step;
-      progress.current.set(connection.id, drawn);
+      const from = level.current.get(connection.id) ?? LINE_LEVEL_NEUTRAL;
+      const lit = from + (target - from) * step;
+      level.current.set(connection.id, lit);
 
-      const head = drawnAs.start.clone().lerp(drawnAs.end, Math.min(drawn, 1));
+      // The whole segment, always. Which end is `start` still matters to the
+      // signal sweep, but a line drawn end to end doesn't care.
       position.setXYZ(
         index * 2,
-        drawnAs.start.x,
-        drawnAs.start.y,
-        drawnAs.start.z,
+        connection.start.x,
+        connection.start.y,
+        connection.start.z,
       );
-      position.setXYZ(index * 2 + 1, head.x, head.y, head.z);
+      position.setXYZ(
+        index * 2 + 1,
+        connection.end.x,
+        connection.end.y,
+        connection.end.z,
+      );
 
       // Additive blending: brightness is how the opacity reads, so the
       // Strength goes into the colour rather than a per-line material.
       const brightness =
         (LINE_BASE_BRIGHTNESS +
           connection.strength * LINE_STRENGTH_BRIGHTNESS) *
-        drawn;
+        lit;
       for (const vertex of [index * 2, index * 2 + 1]) {
         color.setXYZ(
           vertex,
@@ -872,11 +955,12 @@ export function SphereScene() {
         autoRotate={isIdle && selectedAtomId === null}
         autoRotateSpeed={AUTO_ROTATE_SPEED}
         enableDamping
-        dampingFactor={0.08}
+        dampingFactor={DAMPING_FACTOR}
         enablePan={false}
         minDistance={0.4}
         maxDistance={6}
-        rotateSpeed={0.6}
+        rotateSpeed={ROTATE_SPEED}
+        zoomSpeed={ZOOM_SPEED}
         onStart={handleInteractionStart}
         onEnd={handleInteractionEnd}
       />

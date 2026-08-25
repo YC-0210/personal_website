@@ -1,7 +1,14 @@
 # ADR-0006: Articles publish on save, and delete to a Trash
 
-- **Status**: Accepted
+- **Status**: Accepted, amended by ADR-0008
 - **Date**: 2026-08-02
+
+> **Amended 2026-08-10.** The publish-on-save half of this decision no longer
+> holds: an Article is now written as a draft and published deliberately. See
+> ADR-0008, which argues the change against the reasoning below rather than
+> merely recording it. The Trash half of this ADR stands unchanged, and
+> `published_at` joins `deleted_at` as a second independent axis on the same
+> read paths.
 
 ## Context
 

@@ -1,6 +1,6 @@
 import type {
   Atom,
-  AtomDraft,
+  SettledAtomDraft,
   AtomId,
   Connection,
   ConnectionDraft,
@@ -24,10 +24,10 @@ export interface SphereRepository {
   loadSnapshot(): Promise<SphereSnapshot>;
 
   /** Persist a new Atom and return it with its assigned id. */
-  createAtom(draft: AtomDraft): Promise<Atom>;
+  createAtom(draft: SettledAtomDraft): Promise<Atom>;
 
   /** Overwrite an existing Atom and return it as saved. */
-  updateAtom(atomId: AtomId, draft: AtomDraft): Promise<Atom>;
+  updateAtom(atomId: AtomId, draft: SettledAtomDraft): Promise<Atom>;
 
   /**
    * Remove an Atom. Connections at either end of it go with it — a Connection

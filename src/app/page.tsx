@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { AtomDetailPanel } from "@/components/atom-detail-panel";
 import { AtomEditor } from "@/components/atom-editor";
@@ -12,10 +12,13 @@ import {
   useHandoffProgress,
 } from "@/components/hero-quote";
 import { OwnerAffordance } from "@/components/owner-affordance";
+import { SphereLegend } from "@/components/sphere-legend";
 import { SphereListView } from "@/components/sphere-list-view";
 import { SphereScene } from "@/components/sphere-scene";
 import { isWebGLSupported } from "@/lib/webgl-support";
-import { useSphere } from "@/sphere/use-sphere";
+import { atomIdFromHash } from "@/sphere/atom-link";
+import { sceneNotice } from "@/sphere/scene-notice";
+import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
 function statusMessage(
   status: string,
@@ -42,8 +45,51 @@ function subscribeToNothing(): () => void {
  */
 const SPHERE_ENGAGED_AT = 0.6;
 
+/**
+ * The page's stacking order. Every `fixed` element on the Sphere must name one
+ * of these, because the Sphere's own screen is opaque and lifted: anything left
+ * at `z-auto` is painted over by the canvas and is invisible while looking
+ * perfectly correct in the DOM. That has already happened twice — to the
+ * Dossier, and to every one of the Owner's controls including the way in.
+ *
+ *   z-0   the hero quote, behind everything
+ *   z-10  the Sphere's screen (opaque `bg-canvas`, so it hides what it covers)
+ *   z-20  controls and panels that sit on the Sphere
+ *   z-30  modal dialogs and their scrims, over all of it
+ */
+
+/**
+ * The empty and failed states, as a sighted visitor reads them.
+ *
+ * Centred on the canvas rather than in a corner: when it shows there is nothing
+ * else on the screen, so it *is* the screen. Surfaces, hairline, radius and type
+ * are DESIGN.md tokens, and lavender stays off it — this is not a CTA.
+ *
+ * `aria-hidden` because the `role="status"` paragraph at the foot of the page
+ * already says all of this; without it a screen reader hears it twice.
+ */
+function SceneNotice({ title, detail }: { title: string; detail: string | null }) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-10 grid place-items-center px-6"
+    >
+      <div className="border-hairline bg-surface-1 max-w-md rounded-lg border px-6 py-5 text-center">
+        <p className="text-ink text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
+          {title}
+        </p>
+        {detail && (
+          <p className="text-ink-subtle mt-2 text-sm leading-relaxed break-words">
+            {detail}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
-  const { status, atoms, error } = useSphere();
+  const { status, atoms, error, isEditMode, selectedAtomId } = useSphere();
 
   /**
    * Whether this browser can raise WebGL at all — unknown until after the first
@@ -62,6 +108,38 @@ export default function Home() {
   const progress = useHandoffProgress();
   const isSphereEngaged = progress > SPHERE_ENGAGED_AT;
 
+  // The List view says both of these itself, so the notice is the scene's alone.
+  const notice = showList
+    ? null
+    : sceneNotice({ status, atomCount: atoms.length, error, isEditMode });
+
+  /**
+   * Following a Bonding out of an Article lands here as `/#atom-<id>`. The
+   * Sphere has to be loaded before the id means anything, so this waits for
+   * `ready` rather than firing on mount.
+   */
+  useEffect(() => {
+    if (status !== "ready") return;
+
+    const followHash = () => {
+      const atomId = atomIdFromHash(window.location.hash);
+      if (atomId === null) return;
+
+      const store = getSphereStore();
+      if (!store.hasAtom(atomId)) return;
+      store.selectAtom(atomId);
+
+      // The quote owns the first screen. Arriving on a named Atom is a reader
+      // who has already been somewhere — hand them the Sphere directly. In the
+      // List view the anchor does its own scrolling, inside its own scroller.
+      if (!showList) window.scrollTo(0, window.innerHeight);
+    };
+
+    followHash();
+    window.addEventListener("hashchange", followHash);
+    return () => window.removeEventListener("hashchange", followHash);
+  }, [status, showList]);
+
   return (
     <main>
       <h1 className="sr-only">Knowledge Sphere</h1>
@@ -79,6 +157,7 @@ export default function Home() {
       */}
       <div className="bg-canvas relative z-10 h-dvh">
         {hasWebGL && !showList && <SphereScene />}
+        {notice && <SceneNotice {...notice} />}
         {showList && (
           <div className="h-full overflow-y-auto">
             <SphereListView />
@@ -109,6 +188,10 @@ export default function Home() {
           >
             Articles
           </Link>
+
+          {!showList && atoms.length > 0 && (
+            <SphereLegend isDossierOpen={selectedAtomId !== null} />
+          )}
 
           {!showList && <AtomDetailPanel />}
           <OwnerAffordance />

@@ -29,7 +29,7 @@ The single authenticated user — the site's owner — who can enter Edit Mode. 
 _Avoid_: admin, author.
 
 **Edit Mode**:
-The authenticated state of the page in which the Owner can create, edit, and delete Atoms and Connections directly on the same screen visitors see. Changes made in Edit Mode apply live immediately — there is no separate draft/publish step.
+The authenticated state of the page in which the Owner can create, edit, and delete Atoms and Connections directly on the same screen visitors see. Changes made in Edit Mode apply live immediately — there is no separate draft/publish step for an Atom or a Connection. Articles are the one exception: writing is drafted privately and published deliberately, because autosave would otherwise publish every half-formed sentence. See ADR-0008.
 _Avoid_: admin panel, dashboard, CMS.
 
 **Visitor**:
@@ -43,6 +43,13 @@ _Avoid_: detail panel, modal, popup.
 **Compact Bar**:
 The lean single-line summary of the selected Atom (label, hours, Connection count) shown on small viewports in place of the full Dossier, leaving the Sphere visible. Opening it leads to the Dossier.
 _Avoid_: mini panel, toast, snackbar.
+
+**Learning State**:
+Where the Owner stands with an Atom: still working through it, or done with it.
+Not Rank — a topic can carry a thousand hours and still be ongoing. It is the
+colour of an Atom's moons: lavender while still being learned, green once
+learned.
+_Avoid_: status, progress, done flag.
 
 **Nameplate**:
 An Atom's label rendered beside its node in the Sphere, always visible, scaled with Rank and dimmed with the selection's emphasis.
@@ -60,12 +67,30 @@ a paper, a repository, a post. Validated as URL-shaped before it saves.
 _Avoid_: reference, source, citation.
 
 **Article**:
-A piece of the Owner's writing, published the moment it is saved. Lives on the
-Articles page, apart from the Sphere.
+A piece of the Owner's writing, written as a Draft and then published
+deliberately. Its body is a rich document — headings, quotes, lists, links —
+not a block of plain text. Lives on the Articles page, apart from the Sphere.
 _Avoid_: post, blog, entry, note.
 
+**Draft**:
+An Article that has been written but not published. Only the Owner can read one,
+and that is enforced by the database rather than by the client — a Draft never
+reaches a Visitor, by the Articles list or through an Atom's Dossier. Autosave
+writes to the Draft continuously; publishing is a separate act. Marked with a
+lavender `▶ Draft` badge beside the title.
+_Avoid_: unpublished, private, WIP, pending.
+
+**Bonding**:
+A link between an Article and an Atom, carrying a Name that says how that Atom
+feeds into that Article — "How classical physics connects to economics". An
+Article can bond to many Atoms and an Atom can be bonded from many Articles;
+each pair bonds once. Read in both directions: the Atom's Dossier lists the
+Articles bonded to it, and the Article lists the Atoms it draws on.
+_Avoid_: citation, tag, reference, backlink.
+
 **Trash**:
-Where a deleted Article waits. Deleting an Article marks it rather than removing
+Where a deleted Article waits. Independent of whether it was a Draft — an
+Article can be a Draft in the Trash, or a published one. Deleting an Article marks it rather than removing
 it — it leaves the public list at once, and the Owner can restore it or delete
 it for good.
 _Avoid_: archive, bin, recycle.

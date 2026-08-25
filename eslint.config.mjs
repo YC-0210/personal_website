@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Where the browser checks build to, so their output is not linted.
+    ".next-e2e/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

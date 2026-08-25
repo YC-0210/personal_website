@@ -1,4 +1,11 @@
-import type { Article, ArticleDraft, ArticleId } from "./domain";
+import type {
+  Article,
+  ArticleDraft,
+  ArticleId,
+  Bonding,
+  BondingDraft,
+  BondingId,
+} from "./domain";
 
 /**
  * Persistence seam for the Article store, the same shape the Sphere's
@@ -16,6 +23,12 @@ export interface ArticleRepository {
 
   updateArticle(articleId: ArticleId, draft: ArticleDraft): Promise<Article>;
 
+  /**
+   * Publish a draft. Stamps `publishedAt`; separate from `updateArticle`
+   * precisely so that saving cannot publish by accident (ADR-0008).
+   */
+  publishArticle(articleId: ArticleId): Promise<Article>;
+
   /** Move an Article to the Trash. The row stays; `deletedAt` is stamped. */
   trashArticle(articleId: ArticleId): Promise<Article>;
 
@@ -24,4 +37,19 @@ export interface ArticleRepository {
 
   /** Remove the row for good. There is nothing after this. */
   deleteArticleForever(articleId: ArticleId): Promise<void>;
+
+  /**
+   * Every Bonding the reader is allowed to see. Kept apart from `loadArticles`
+   * because the two are separate tables and the join is the store's to make.
+   */
+  loadBondings(): Promise<Bonding[]>;
+
+  /** Persist a new Bonding and return it with its assigned id. */
+  createBonding(draft: BondingDraft): Promise<Bonding>;
+
+  /** Reword what a Bonding says. Neither the Article nor the Atom moves. */
+  updateBonding(bondingId: BondingId, name: string): Promise<Bonding>;
+
+  /** Unbond an Article from an Atom. Neither of them is touched. */
+  deleteBonding(bondingId: BondingId): Promise<void>;
 }

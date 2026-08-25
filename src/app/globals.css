@@ -67,3 +67,56 @@ body {
   outline: 2px solid color-mix(in srgb, var(--color-primary-focus) 50%, transparent);
   outline-offset: 2px;
 }
+
+/**
+ * An Article's body, in both places it appears: the reader's page and the
+ * writing surface. One set of rules, so what the Owner types is what a Visitor
+ * gets — the editor is not styled to merely resemble the article page.
+ */
+.article-prose {
+  color: var(--color-ink-muted);
+  font-size: 19px;
+  line-height: 1.72;
+}
+.article-prose > * + * { margin-top: 1.1em; }
+.article-prose h2 {
+  color: var(--color-ink); font-size: 28px; font-weight: 600;
+  letter-spacing: -0.6px; line-height: 1.2; margin-top: 1.9em;
+}
+.article-prose h3 {
+  color: var(--color-ink); font-size: 22px; font-weight: 500;
+  letter-spacing: -0.4px; line-height: 1.25; margin-top: 1.7em;
+}
+.article-prose strong { color: var(--color-ink); font-weight: 600; }
+.article-prose a {
+  color: var(--color-primary-hover); text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.article-prose blockquote {
+  border-left: 2px solid var(--color-hairline-strong);
+  padding-left: 20px; color: var(--color-ink-subtle); font-style: italic;
+}
+.article-prose ul, .article-prose ol { padding-left: 1.4em; }
+.article-prose ul { list-style: disc; }
+.article-prose ol { list-style: decimal; }
+.article-prose li > p { margin: 0; }
+.article-prose li + li { margin-top: 0.4em; }
+.article-prose code {
+  background: var(--color-surface-2); border-radius: 4px; padding: 1px 5px;
+  font-size: 0.87em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.article-prose pre {
+  background: var(--color-surface-1); border: 1px solid var(--color-hairline);
+  border-radius: 8px; padding: 14px 16px; overflow-x: auto;
+  font-size: 14px; line-height: 1.55;
+}
+.article-prose pre code { background: none; padding: 0; }
+.article-prose hr { border: 0; border-top: 1px solid var(--color-hairline); margin: 2em 0; }
+
+/* Tiptap's placeholder, shown on the empty line the caret is sitting on. */
+.article-prose p.is-empty:first-child::before,
+.article-prose .is-empty::before {
+  content: attr(data-placeholder); color: var(--color-ink-tertiary);
+  float: left; height: 0; pointer-events: none;
+}

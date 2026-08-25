@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { ArticleId } from "@/articles/domain";
+import { excerptOf } from "@/articles/article-body";
 import { getArticleStore, useArticles } from "@/articles/use-articles";
 
 /**
@@ -67,7 +68,7 @@ export default function ArticleTrashPage() {
               {article.title}
             </h2>
             <p className="text-ink-tertiary mt-1 line-clamp-2 text-sm leading-relaxed">
-              {article.body}
+              {excerptOf(article.body)}
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">

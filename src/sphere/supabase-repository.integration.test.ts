@@ -57,6 +57,7 @@ describe("SupabaseSphereRepository against the real project", () => {
         label: "anonymous write attempt",
         description: "",
         hoursSpent: 1,
+        learningState: "ongoing" as const,
       }),
     ).rejects.toThrow(/row-level security/);
   });
@@ -107,11 +108,13 @@ describe.skipIf(!ownerEmail || !ownerPassword)(
         label: `integration-check-a-${stamp}`,
         description: "Temporary, deleted at the end of this test.",
         hoursSpent: 1,
+        learningState: "ongoing" as const,
       });
       const to = await repository.createAtom({
         label: `integration-check-b-${stamp}`,
         description: "Temporary, deleted at the end of this test.",
         hoursSpent: 2,
+        learningState: "ongoing" as const,
       });
 
       try {
