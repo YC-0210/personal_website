@@ -312,6 +312,34 @@ export class ArticleStore {
   }
 
   /**
+   * How many Articles have been written about each Atom: the count the Sphere
+   * reads for an Atom's moons and for its Rank (issue #30).
+   *
+   * Live, published, bonded — and deliberately *not* the rule `bondedArticles()`
+   * uses. That one answers "what may this reader open", so it includes the
+   * Owner's own drafts. This one answers "what has been written about this
+   * Atom", and has to give everybody the same answer: moons and Rank both hang
+   * off it, so a reader-dependent count would resize Atoms and move orbits the
+   * moment the Owner signed in, leaving them tuning a Sphere no Visitor sees.
+   *
+   * Atoms with nothing written about them are absent rather than zero. The
+   * Sphere reads a missing count as none, and listing every Atom here would
+   * mean this store knowing what Atoms exist, which is the Sphere's to know.
+   */
+  publishedBondedCounts(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const bonding of this.state.bondings) {
+      const article = this.state.articles.find(
+        (candidate) => candidate.id === bonding.articleId,
+      );
+      if (!article) continue;
+      if (article.deletedAt !== null || article.publishedAt === null) continue;
+      counts[bonding.atomId] = (counts[bonding.atomId] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /**
    * Pick up a session the Owner already had, and keep following it if it goes
    * away on its own. Returns the unsubscribe for the session listener.
    */

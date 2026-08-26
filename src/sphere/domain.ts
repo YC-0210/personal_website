@@ -12,11 +12,11 @@ export type ConnectionId = string;
 /**
  * Where the Owner is with an Atom: still working through it, or done with it.
  *
- * This is not Rank. Rank is how much time went in and is derived from
- * `hoursSpent`; the learning state is a judgement the Owner makes, and a topic
- * can carry a thousand hours and still be ongoing. The Sphere shows the two
- * differently — Rank sets an Atom's size and how many moons it carries, the
- * learning state sets what colour those moons are.
+ * This is not Rank. Rank is how much has been written about an Atom, derived
+ * from the Articles bonded to it; the learning state is a judgement the Owner
+ * makes, and a topic can carry a shelf of Articles and still be ongoing. The
+ * Sphere shows the two differently — Rank sets an Atom's size and how many
+ * moons it carries, the learning state sets what colour those moons are.
  */
 export type LearningState = "ongoing" | "learned";
 
@@ -27,8 +27,6 @@ export interface Atom {
   id: AtomId;
   label: string;
   description: string;
-  /** Time the Owner has invested in this topic. Drives Rank in a later ticket. */
-  hoursSpent: number;
   learningState: LearningState;
 }
 

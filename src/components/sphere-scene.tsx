@@ -136,7 +136,7 @@ const LINE_LEVEL_DIMMED = 0.09;
 
 /**
  * How many signals a Connection runs is the far Atom's Rank — the busiest
- * lines lead to the knowledge with the most hours behind it.
+ * lines lead to the knowledge with the most writing behind it.
  */
 const MAX_SIGNALS_PER_CONNECTION = 6;
 
@@ -220,7 +220,8 @@ function SphereShell() {
  * the ~50-Atom target.
  */
 function AtomNodes() {
-  const { atoms, layout, emphasis, selectedAtomId } = useSphere();
+  const { atoms, layout, emphasis, selectedAtomId, articleCounts } =
+    useSphere();
   const store = getSphereStore();
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
 
@@ -291,7 +292,8 @@ function AtomNodes() {
       if (moons) {
         const { radius, speed } = moonOrbit(placement.rank);
         // Reduced motion holds the moons at fixed points on their orbit: the
-        // radius still carries Rank and the count still carries hours, they
+        // radius still carries Rank and the count still carries the
+        // writing, they
         // just stop travelling.
         const travel = reducedMotion
           ? index
@@ -338,7 +340,7 @@ function AtomNodes() {
             </mesh>
             {/*
               One orbit per Atom, tilted its own way, carrying a moon for every
-              whole 250 hours devoted to it — so an Atom under its first 250
+              Article written about it — so an Atom nobody has written about
               orbits empty. They share the plane so the count reads as a count
               rather than as several unrelated bodies.
             */}
@@ -346,18 +348,21 @@ function AtomNodes() {
               name="moons"
               rotation={[Math.PI / 2.4 + (index % 4) * 0.2, (index % 6) * 0.5, 0]}
             >
-              {Array.from({ length: moonCount(atom.hoursSpent) }, (_, moon) => (
-                <mesh key={moon} geometry={coreGeometry} scale={MOON_SIZE}>
-                  <meshBasicMaterial
-                    color={
-                      atom.learningState === "learned"
-                        ? MOON_LEARNED_COLOR
-                        : MOON_ONGOING_COLOR
-                    }
-                    transparent
-                  />
-                </mesh>
-              ))}
+              {Array.from(
+                { length: moonCount(articleCounts[atom.id] ?? 0) },
+                (_, moon) => (
+                  <mesh key={moon} geometry={coreGeometry} scale={MOON_SIZE}>
+                    <meshBasicMaterial
+                      color={
+                        atom.learningState === "learned"
+                          ? MOON_LEARNED_COLOR
+                          : MOON_ONGOING_COLOR
+                      }
+                      transparent
+                    />
+                  </mesh>
+                ),
+              )}
             </group>
             <mesh
               name="shell"

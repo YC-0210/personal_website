@@ -12,7 +12,7 @@ import { getSphereStore, useSphere } from "@/sphere/use-sphere";
  *
  * On desktop, selecting an Atom slides a card in from the right with the
  * Atom's full detail and its Connections. On mobile the selection shows only
- * the Compact Bar — label, hours, Connection count — so the Sphere, its
+ * the Compact Bar — label and Connection count — so the Sphere, its
  * Nameplates and its lit Connections stay visible; opening the bar takes the
  * whole screen with the connected knowledge leading (the Takeover chosen from
  * the ADR-0004 prototypes).
@@ -149,9 +149,6 @@ export function AtomDetailPanel() {
         <h2 className="text-ink mt-2 text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
           {shown.atom.label}
         </h2>
-        <p className="bg-surface-2 text-ink-muted mt-2 inline-block rounded-full px-2 py-0.5 text-xs">
-          {shown.atom.hoursSpent.toLocaleString()} hrs
-        </p>
         <p className="text-ink-muted mt-4 text-sm leading-relaxed">
           {shown.atom.description}
         </p>
@@ -175,7 +172,6 @@ export function AtomDetailPanel() {
               {shown.atom.label}
             </span>
             <span className="text-ink-subtle text-xs">
-              {shown.atom.hoursSpent.toLocaleString()} hrs ·{" "}
               {shown.connections.length} connections
             </span>
           </span>
@@ -199,9 +195,6 @@ export function AtomDetailPanel() {
               <h2 className="text-ink mt-1 text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
                 {shown.atom.label}
               </h2>
-              <p className="bg-surface-2 text-ink-muted mt-2 inline-block rounded-full px-2 py-0.5 text-xs">
-                {shown.atom.hoursSpent.toLocaleString()} hrs
-              </p>
             </div>
             <button
               type="button"

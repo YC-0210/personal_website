@@ -5,7 +5,7 @@ A personal site whose homepage is an interactive visualization of the owner's kn
 ## Language
 
 **Atom**:
-A single knowledge point, rendered as a node floating around the Sphere. Has a label, a description, and a time-spent value that determines its Rank.
+A single knowledge point, rendered as a node floating around the Sphere. Has a label and a description. Its Rank is not stored on it — it is earned, from the Articles written about it.
 _Avoid_: node, skill, entry, topic.
 
 **Connection**:
@@ -17,7 +17,7 @@ A 0–1 value on a Connection describing how strongly two Atoms relate to each o
 _Avoid_: weight, score.
 
 **Rank**:
-An Atom's visual weight — its size and orbit depth — derived from the time spent on that knowledge point. Higher time spent means a bigger Atom positioned closer to the Sphere's center.
+An Atom's visual weight — its size and orbit depth — derived from how many Articles have been written about that knowledge point. More writing means a bigger Atom positioned closer to the Sphere's center. Counted off live, published Bondings only, so the Sphere reads the same for the Owner as for a Visitor.
 _Avoid_: level, score, weight.
 
 **Sphere**:
@@ -41,12 +41,12 @@ The full detail view of the selected Atom — its description and every Connecti
 _Avoid_: detail panel, modal, popup.
 
 **Compact Bar**:
-The lean single-line summary of the selected Atom (label, hours, Connection count) shown on small viewports in place of the full Dossier, leaving the Sphere visible. Opening it leads to the Dossier.
+The lean single-line summary of the selected Atom (label, Connection count) shown on small viewports in place of the full Dossier, leaving the Sphere visible. Opening it leads to the Dossier.
 _Avoid_: mini panel, toast, snackbar.
 
 **Learning State**:
 Where the Owner stands with an Atom: still working through it, or done with it.
-Not Rank — a topic can carry a thousand hours and still be ongoing. It is the
+Not Rank — a topic can carry a shelf of Articles and still be ongoing. It is the
 colour of an Atom's moons: lavender while still being learned, green once
 learned.
 _Avoid_: status, progress, done flag.
@@ -54,6 +54,10 @@ _Avoid_: status, progress, done flag.
 **Nameplate**:
 An Atom's label rendered beside its node in the Sphere, always visible, scaled with Rank and dimmed with the selection's emphasis.
 _Avoid_: tag, tooltip, caption.
+
+**Moon**:
+A small body orbiting inside an Atom, carrying what has been written about it: one moon per live, published Article bonded to that Atom, up to six. Its colour is the Atom's Learning State, not its Rank.
+_Avoid_: dot, orb, satellite, ring.
 
 **Explanation**:
 What a Connection says about the two Atoms it joins — a written description, an

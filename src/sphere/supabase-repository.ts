@@ -13,7 +13,7 @@ import {
 } from "./domain";
 import type { SphereRepository } from "./repository";
 
-const ATOM_COLUMNS = "id, label, description, hours_spent, learning_state";
+const ATOM_COLUMNS = "id, label, description, learning_state";
 const CONNECTION_COLUMNS =
   "id, from_atom_id, to_atom_id, strength, description, external_link";
 
@@ -21,7 +21,6 @@ interface AtomRow {
   id: string;
   label: string;
   description: string;
-  hours_spent: number | string;
   learning_state: string | null;
 }
 
@@ -39,7 +38,6 @@ function toAtom(row: AtomRow): Atom {
     id: row.id,
     label: row.label,
     description: row.description,
-    hoursSpent: Number(row.hours_spent),
     // Normalised rather than cast: a row written before the column existed, or
     // anything unrecognised, reads as still-being-learned.
     learningState: toLearningState(row.learning_state),
@@ -50,7 +48,6 @@ function fromAtomDraft(draft: SettledAtomDraft) {
   return {
     label: draft.label,
     description: draft.description,
-    hours_spent: draft.hoursSpent,
     learning_state: draft.learningState,
   };
 }

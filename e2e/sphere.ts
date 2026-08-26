@@ -6,9 +6,9 @@ import type { Locator, Page } from "@playwright/test";
  * uuids — nothing in the client cares, and they read better in a failure.
  */
 export const ATOMS = [
-  { id: "a1", label: "Classical physics", description: "Newton onwards.", hours_spent: 900 },
-  { id: "a2", label: "Economics", description: "Borrowed mechanics.", hours_spent: 500 },
-  { id: "a3", label: "Statistics", description: "The shared tool.", hours_spent: 300 },
+  { id: "a1", label: "Classical physics", description: "Newton onwards." },
+  { id: "a2", label: "Economics", description: "Borrowed mechanics." },
+  { id: "a3", label: "Statistics", description: "The shared tool." },
 ];
 
 export const CONNECTIONS = [

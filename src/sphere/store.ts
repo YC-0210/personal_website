@@ -29,6 +29,15 @@ export interface SphereState {
   connections: Connection[];
   /** Derived Rank and position per Atom, recomputed whenever the data changes. */
   layout: Record<AtomId, AtomLayout>;
+  /**
+   * How many Articles have been written about each Atom — the count that Rank
+   * and an Atom's moons are both read off (issue #30).
+   *
+   * It is fed in rather than loaded: Bondings live in the Article store
+   * (ADR-0007), and the Sphere needs the number, not the Bondings. An Atom
+   * absent from here has had nothing written about it.
+   */
+  articleCounts: Record<AtomId, number>;
   selectedAtomId: AtomId | null;
   /** How each Atom and Connection should read, given the current selection. */
   emphasis: SphereEmphasis;
@@ -82,6 +91,7 @@ const EMPTY_STATE: SphereState = {
   atoms: [],
   connections: [],
   layout: {},
+  articleCounts: {},
   selectedAtomId: null,
   emphasis: { atoms: {}, connections: {} },
   error: null,
@@ -142,6 +152,20 @@ export class SphereStore {
         error: cause instanceof Error ? cause.message : String(cause),
       });
     }
+  }
+
+  /**
+   * Tell the Sphere how many Articles have been written about each Atom, and
+   * re-rank it on the answer.
+   *
+   * The Sphere does not read Bondings — they belong to the Article store
+   * (ADR-0007) — so this is the seam between the two, and the component layer
+   * is what joins them. Publishing an Article is a write on a different page,
+   * and this is how the Sphere follows it without being reloaded.
+   */
+  setArticleCounts(articleCounts: Record<AtomId, number>): void {
+    this.state = Object.freeze({ ...this.state, articleCounts });
+    this.applySphere(this.state.atoms, this.state.connections);
   }
 
   /**
@@ -257,9 +281,11 @@ export class SphereStore {
    * state the scene draws.
    */
   sphereIndex(): AtomDetail[] {
+    const writtenAbout = (atom: Atom) => this.state.articleCounts[atom.id] ?? 0;
     return [...this.state.atoms]
       .sort(
-        (a, b) => b.hoursSpent - a.hoursSpent || a.label.localeCompare(b.label),
+        (a, b) =>
+          writtenAbout(b) - writtenAbout(a) || a.label.localeCompare(b.label),
       )
       .map((atom) => this.detailOf(atom));
   }
@@ -513,7 +539,11 @@ export class SphereStore {
     this.setState({
       atoms,
       connections,
-      layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
+      layout: layoutSphere(
+        atoms,
+        connections,
+        rankAtoms(atoms, this.state.articleCounts),
+      ),
       selectedAtomId,
       emphasis: deriveEmphasis(atoms, connections, selectedAtomId),
       ...patch,

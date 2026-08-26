@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { useSphereArticleCounts } from "@/articles/use-sphere-article-counts";
 import { AtomDetailPanel } from "@/components/atom-detail-panel";
 import { AtomEditor } from "@/components/atom-editor";
 import { ConnectionEditor } from "@/components/connection-editor";
@@ -90,6 +91,11 @@ function SceneNotice({ title, detail }: { title: string; detail: string | null }
 
 export default function Home() {
   const { status, atoms, error, isEditMode, selectedAtomId } = useSphere();
+
+  // An Atom's moons and its Rank both count the Articles written about it, and
+  // those live in the Article store (ADR-0007). This is what carries the count
+  // across (#30) — and what makes the Sphere page load the Articles at all.
+  useSphereArticleCounts();
 
   /**
    * Whether this browser can raise WebGL at all — unknown until after the first

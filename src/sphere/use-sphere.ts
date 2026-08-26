@@ -22,6 +22,7 @@ const SERVER_SNAPSHOT: SphereState = {
   atoms: [],
   connections: [],
   layout: {},
+  articleCounts: {},
   selectedAtomId: null,
   emphasis: { atoms: {}, connections: {} },
   error: null,

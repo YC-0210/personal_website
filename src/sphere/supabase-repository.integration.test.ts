@@ -31,14 +31,17 @@ describe("SupabaseSphereRepository against the real project", () => {
       expect(Number.isFinite(placement.size)).toBe(true);
     }
 
-    // Rank is relative, so the most-invested Atom should be the biggest.
+    // Rank is relative and comes from the Articles written about an Atom (#30),
+    // which the Sphere is handed rather than loading. Feed a real Sphere a
+    // count and the most-written-about Atom has to come out the biggest.
+    const mostWritten = atoms[atoms.length - 1];
+    store.setArticleCounts({ [mostWritten.id]: 5 });
+
+    const ranked = store.getState().layout;
     const biggest = [...atoms].sort(
-      (a, b) => layout[b.id].size - layout[a.id].size,
+      (a, b) => ranked[b.id].size - ranked[a.id].size,
     )[0];
-    const mostHours = [...atoms].sort(
-      (a, b) => b.hoursSpent - a.hoursSpent,
-    )[0];
-    expect(biggest.id).toBe(mostHours.id);
+    expect(biggest.id).toBe(mostWritten.id);
   });
 
   /**
@@ -56,7 +59,6 @@ describe("SupabaseSphereRepository against the real project", () => {
       repository.createAtom({
         label: "anonymous write attempt",
         description: "",
-        hoursSpent: 1,
         learningState: "ongoing" as const,
       }),
     ).rejects.toThrow(/row-level security/);
@@ -107,13 +109,11 @@ describe.skipIf(!ownerEmail || !ownerPassword)(
       const from = await repository.createAtom({
         label: `integration-check-a-${stamp}`,
         description: "Temporary, deleted at the end of this test.",
-        hoursSpent: 1,
         learningState: "ongoing" as const,
       });
       const to = await repository.createAtom({
         label: `integration-check-b-${stamp}`,
         description: "Temporary, deleted at the end of this test.",
-        hoursSpent: 2,
         learningState: "ongoing" as const,
       });
 

@@ -57,7 +57,6 @@ export function AtomEditor() {
     const draft = {
       label: String(form.get("label") ?? "").trim(),
       description: String(form.get("description") ?? "").trim(),
-      hoursSpent: Number(form.get("hoursSpent") ?? 0),
       // Read through the same normaliser the repository uses, so a value the
       // form should never produce cannot reach the store either.
       learningState: toLearningState(form.get("learningState")),
@@ -197,27 +196,11 @@ export function AtomEditor() {
               className="border-hairline bg-surface-2 text-ink mb-3 w-full resize-none rounded-md border px-3 py-2 text-sm"
             />
 
-            <label
-              className="text-ink-subtle mb-1 block text-xs"
-              htmlFor="atom-hours"
-            >
-              Time spent (hours)
-            </label>
-            <input
-              id="atom-hours"
-              name="hoursSpent"
-              type="number"
-              min={0}
-              step="any"
-              required
-              defaultValue={subject?.hoursSpent ?? 0}
-              className="border-hairline bg-surface-2 text-ink mb-3 w-full rounded-md border px-3 py-2 text-sm"
-            />
-
             {/*
-              Where the Owner stands with the topic — not how much time went in.
-              It colours the Atom's moons: green while it is still being worked
-              through, lavender once it is done.
+              Where the Owner stands with the topic — not how much has been
+              written about it. It colours the Atom's moons; how many there are
+              comes from the Articles bonded to it, which is not editable here
+              (#30). An Atom earns its Rank by being written about.
             */}
             <label
               className="text-ink-subtle mb-1 block text-xs"
