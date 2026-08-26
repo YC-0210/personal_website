@@ -1,5 +1,10 @@
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Placeholder } from "@tiptap/extensions";
+import { ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+
+import { editorLowlight, PLAIN_TEXT_GRAMMAR } from "./code-highlight";
+import { CodeBlockView } from "@/components/code-block-view";
 
 /**
  * What an Article's body is allowed to contain.
@@ -13,6 +18,11 @@ import StarterKit from "@tiptap/starter-kit";
  * Images are deliberately absent (decision 3): an image needs a Storage bucket,
  * an upload path, RLS and size limits, and that is its own ticket.
  *
+ * The code block is `CodeBlockLowlight` rather than StarterKit's own (#32), so
+ * it can carry a language and be coloured for it. StarterKit's is switched off
+ * rather than left alongside: two extensions claiming the `codeBlock` node is a
+ * duplicate-name error, not a merge.
+ *
  * `@/components/article-body-view` renders whatever this set can produce. The
  * two move together — adding an extension here without teaching the view about
  * it means the Owner can write something a reader silently never sees.
@@ -22,6 +32,22 @@ export const ARTICLE_EXTENSIONS = [
     // The Article's title is the h1, so the body starts one level down.
     heading: { levels: [2, 3] },
     link: { openOnClick: false, autolink: true },
+    // Replaced below. Both would claim the `codeBlock` node.
+    codeBlock: false,
+  }),
+  CodeBlockLowlight.extend({
+    // The picker lives on the block itself — see `CodeBlockView` for why. A
+    // node view, not a config option: it replaces how the node is *drawn*.
+    addNodeView() {
+      return ReactNodeViewRenderer(CodeBlockView);
+    },
+  }).configure({
+    // The same registry the reader colours from, so the two cannot end up
+    // knowing different languages — and one that cannot guess. Both halves
+    // matter: without them the extension picks a language for any block that
+    // does not name one it recognises, which is decision 3 on #32 inverted.
+    lowlight: editorLowlight,
+    defaultLanguage: PLAIN_TEXT_GRAMMAR,
   }),
   Placeholder.configure({
     placeholder: ({ node }: { node: { type: { name: string } } }) =>
