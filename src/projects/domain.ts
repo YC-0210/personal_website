@@ -68,3 +68,31 @@ export interface DaylogEntry {
 
 /** What the Owner supplies. The id and the published state are the store's. */
 export type DaylogEntryDraft = Pick<DaylogEntry, "date" | "body">;
+
+export type ProjectBondingId = string;
+
+/**
+ * A Bonding joining one Project to one Atom: the work touched that topic.
+ *
+ * The same concept as the Article's Bonding and the same word in `CONTEXT.md`,
+ * kept in its own table because the two differ in the one place that matters
+ * (#35, decisions 4 and 5). An Article's Bonding **must** carry a Name saying
+ * how the Atom feeds the argument, and the column enforces it. A Project's Name
+ * is optional: the Owner said a Project need not bond at all, and demanding a
+ * sentence per link is Article-grade ceremony on a work log.
+ *
+ * A single polymorphic table would have made that a conditional constraint,
+ * which is to say no constraint at all — the invariant would have moved out of
+ * the database and into application code where nothing enforces it.
+ */
+export interface ProjectBonding {
+  id: ProjectBondingId;
+  projectId: ProjectId;
+  /** The Atom this work touched. Ids only — Atoms belong to the Sphere. */
+  atomId: string;
+  /** How this Atom feeds the work, if the Owner cared to say. */
+  name: string | null;
+}
+
+/** What the Owner supplies when bonding. The id is the store of record's. */
+export type ProjectBondingDraft = Omit<ProjectBonding, "id">;

@@ -8,6 +8,9 @@ import type {
   DaylogEntryDraft,
   DaylogEntryId,
   Project,
+  ProjectBonding,
+  ProjectBondingDraft,
+  ProjectBondingId,
   ProjectDraft,
   ProjectId,
 } from "./domain";
@@ -20,6 +23,8 @@ export interface ProjectState {
   projects: Project[];
   /** Every Daylog Entry the reader may see, across every Project. */
   entries: DaylogEntry[];
+  /** Every Project-to-Atom Bonding, read in both directions. */
+  bondings: ProjectBonding[];
   error: string | null;
   owner: OwnerSession | null;
   isEditMode: boolean;
@@ -28,10 +33,17 @@ export interface ProjectState {
 
 export type ProjectListener = (state: ProjectState) => void;
 
+/** One row of an Atom's Dossier: a Project, and how it touched that Atom. */
+export interface BondedProject {
+  project: Project;
+  bonding: ProjectBonding;
+}
+
 const EMPTY_STATE: ProjectState = {
   status: "idle",
   projects: [],
   entries: [],
+  bondings: [],
   error: null,
   owner: null,
   isEditMode: false,
@@ -66,11 +78,18 @@ export class ProjectStore {
     this.setState({ status: "loading", error: null });
 
     try {
-      const [projects, entries] = await Promise.all([
+      const [projects, entries, bondings] = await Promise.all([
         this.repository.loadProjects(),
         this.repository.loadEntries(),
+        this.repository.loadBondings(),
       ]);
-      this.setState({ projects, entries, status: "ready", error: null });
+      this.setState({
+        projects,
+        entries,
+        bondings,
+        status: "ready",
+        error: null,
+      });
     } catch (cause) {
       this.setState({
         status: "error",
@@ -248,6 +267,69 @@ export class ProjectStore {
     await this.write(async () => {
       this.replaceEntry(await this.repository.publishEntry(entryId));
     });
+  }
+
+  /**
+   * Bond this Project to an Atom: the work touched that topic.
+   *
+   * No Name is required (#35, decision 5). Bonding at all is optional — a
+   * Project that draws on nothing in the Sphere is a perfectly good Project.
+   */
+  async addBonding(draft: ProjectBondingDraft): Promise<void> {
+    await this.write(async () => {
+      // One pair, one Bonding — the schema enforces it with a unique index, and
+      // catching it here turns a constraint name into a sentence.
+      const alreadyBonded = this.state.bondings.some(
+        (bonding) =>
+          bonding.projectId === draft.projectId &&
+          bonding.atomId === draft.atomId,
+      );
+      if (alreadyBonded) {
+        throw new Error("That Project and Atom are already bonded.");
+      }
+
+      const bonding = await this.repository.createBonding(draft);
+      this.setState({ bondings: [...this.state.bondings, bonding] });
+    });
+  }
+
+  /** Unbond a Project from an Atom. Neither of them is otherwise touched. */
+  async deleteBonding(bondingId: ProjectBondingId): Promise<void> {
+    await this.write(async () => {
+      await this.repository.deleteBonding(bondingId);
+      this.setState({
+        bondings: this.state.bondings.filter(
+          (bonding) => bonding.id !== bondingId,
+        ),
+      });
+    });
+  }
+
+  /** The Atoms this Project is bonded to — the Project → Atom read. */
+  bondingsForProject(projectId: ProjectId): ProjectBonding[] {
+    return this.state.bondings.filter(
+      (bonding) => bonding.projectId === projectId,
+    );
+  }
+
+  /**
+   * The Projects bonded to this Atom, each with the Bonding — the Atom →
+   * Project read, which is what an Atom's Dossier lists under "WORKED ON".
+   *
+   * Goes through the same read rule `projects()` uses, so a Project with
+   * nothing published, or one in the Trash, cannot reach a Visitor by this
+   * route either. An Atom's panel is a second way in, not a second rule.
+   */
+  bondedProjects(atomId: string): BondedProject[] {
+    const bonded: BondedProject[] = [];
+    for (const bonding of this.state.bondings) {
+      if (bonding.atomId !== atomId) continue;
+      const project = this.state.projects.find(
+        (candidate) => candidate.id === bonding.projectId,
+      );
+      if (project && this.canRead(project)) bonded.push({ project, bonding });
+    }
+    return bonded;
   }
 
   /**

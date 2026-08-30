@@ -3,6 +3,9 @@ import type {
   DaylogEntryDraft,
   DaylogEntryId,
   Project,
+  ProjectBonding,
+  ProjectBondingDraft,
+  ProjectBondingId,
   ProjectDraft,
   ProjectId,
 } from "./domain";
@@ -11,6 +14,7 @@ import type { ProjectRepository } from "./repository";
 export interface FakeProjectRepositoryOptions {
   projects?: Project[];
   entries?: DaylogEntry[];
+  bondings?: ProjectBonding[];
   /** What `publishEntry` stamps, so tests don't have to deal with real clocks. */
   now?: string;
 }
@@ -22,6 +26,7 @@ export interface FakeProjectRepositoryOptions {
 export class FakeProjectRepository implements ProjectRepository {
   private projects: Project[];
   private entries: DaylogEntry[];
+  private bondings: ProjectBonding[];
   private now: string;
   private failure: Error | null = null;
   private nextId = 1;
@@ -32,6 +37,7 @@ export class FakeProjectRepository implements ProjectRepository {
   constructor(options: FakeProjectRepositoryOptions = {}) {
     this.projects = [...(options.projects ?? [])];
     this.entries = [...(options.entries ?? [])];
+    this.bondings = [...(options.bondings ?? [])];
     this.now = options.now ?? "2026-08-30T00:00:00.000Z";
   }
 
@@ -150,6 +156,26 @@ export class FakeProjectRepository implements ProjectRepository {
 
     this.entries[index] = change(this.entries[index]);
     return { ...this.entries[index] };
+  }
+
+  async loadBondings(): Promise<ProjectBonding[]> {
+    if (this.failure) throw this.failure;
+    return this.bondings.map((bonding) => ({ ...bonding }));
+  }
+
+  async createBonding(draft: ProjectBondingDraft): Promise<ProjectBonding> {
+    if (this.failure) throw this.failure;
+    const bonding: ProjectBonding = {
+      ...draft,
+      id: `generated-project-bonding-${this.nextId++}`,
+    };
+    this.bondings.push(bonding);
+    return { ...bonding };
+  }
+
+  async deleteBonding(bondingId: ProjectBondingId): Promise<void> {
+    if (this.failure) throw this.failure;
+    this.bondings = this.bondings.filter((bonding) => bonding.id !== bondingId);
   }
 
   /** Make every subsequent call reject, until `failWith(null)` clears it. */

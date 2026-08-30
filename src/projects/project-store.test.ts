@@ -405,3 +405,76 @@ describe("Renaming a Project", () => {
     expect(store.lastLoggedOn(projectId)).toBe("2026-08-20");
   });
 });
+
+describe("Bonding a Project to an Atom", () => {
+  it("saves without a Name, unlike an Article's Bonding", async () => {
+    const { store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+
+    // An Article's Bonding refuses a blank Name — it has to say how the Atom
+    // feeds the argument. A Project's need not: the work touched the topic,
+    // and demanding a sentence per link is Article-grade ceremony on a log.
+    await store.addBonding({ projectId, atomId: "atom-threejs", name: null });
+
+    expect(store.bondingsForProject(projectId)).toEqual([
+      { id: expect.any(String), projectId, atomId: "atom-threejs", name: null },
+    ]);
+  });
+
+  it("refuses to bond the same Project and Atom twice", async () => {
+    const { store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+    await store.addBonding({ projectId, atomId: "atom-threejs", name: null });
+
+    await expect(
+      store.addBonding({ projectId, atomId: "atom-threejs", name: "again" }),
+    ).rejects.toThrow(/already bonded/i);
+    expect(store.bondingsForProject(projectId)).toHaveLength(1);
+  });
+});
+
+describe("What an Atom's Dossier lists under WORKED ON", () => {
+  it("shows a bonded Project only to a reader allowed to see that Project", async () => {
+    const { repository, store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+    await store.addBonding({
+      projectId,
+      atomId: "atom-threejs",
+      name: "Where the render loop got learned",
+    });
+    const entryId = await store.addEntry(projectId, {
+      date: "2026-08-20",
+      body: paragraphs("Scene graphs and the render loop."),
+    });
+
+    // The Project has nothing published, so the Dossier must not leak it — or
+    // an Atom's panel would announce work a Visitor is refused everywhere else.
+    expect(store.bondedProjects("atom-threejs")).toHaveLength(1);
+    expect((await storeOver(repository, false)).bondedProjects("atom-threejs")).toEqual([]);
+
+    await store.publishEntry(entryId);
+
+    const visitor = await storeOver(repository, false);
+    expect(visitor.bondedProjects("atom-threejs")).toEqual([
+      {
+        project: expect.objectContaining({ id: projectId }),
+        bonding: expect.objectContaining({
+          atomId: "atom-threejs",
+          name: "Where the render loop got learned",
+        }),
+      },
+    ]);
+  });
+
+  it("does not list a Project that has been trashed", async () => {
+    const { store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+    await store.addBonding({ projectId, atomId: "atom-threejs", name: null });
+    const entryId = await store.addEntry(projectId, { date: "2026-08-20", body: paragraphs("A day.") });
+    await store.publishEntry(entryId);
+
+    await store.deleteProject(projectId);
+
+    expect(store.bondedProjects("atom-threejs")).toEqual([]);
+  });
+});

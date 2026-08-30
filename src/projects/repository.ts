@@ -3,6 +3,9 @@ import type {
   DaylogEntryDraft,
   DaylogEntryId,
   Project,
+  ProjectBonding,
+  ProjectBondingDraft,
+  ProjectBondingId,
   ProjectDraft,
   ProjectId,
 } from "./domain";
@@ -59,4 +62,15 @@ export interface ProjectRepository {
    * would open (#35, decision 13).
    */
   deleteEntryForever(entryId: DaylogEntryId): Promise<void>;
+
+  /**
+   * Every Project-to-Atom Bonding the reader may see. Kept apart from
+   * `loadProjects` because they are separate tables and the join is the
+   * store's to make — ADR-0007's arrangement, unchanged.
+   */
+  loadBondings(): Promise<ProjectBonding[]>;
+
+  createBonding(draft: ProjectBondingDraft): Promise<ProjectBonding>;
+
+  deleteBonding(bondingId: ProjectBondingId): Promise<void>;
 }
