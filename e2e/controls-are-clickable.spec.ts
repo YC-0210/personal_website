@@ -25,11 +25,15 @@ test.describe("A Visitor's controls on the Sphere", () => {
     await scrollToSphere(page);
   });
 
-  test("the view toggle and the Articles link take their own clicks", async ({
+  test("the view toggle and both section links take their own clicks", async ({
     page,
   }) => {
     for (const control of [
       page.getByRole("button", { name: /List view|Sphere view/ }),
+      // Two links in one row now (#35). Both are checked, because a nav that
+      // hands its clicks to only one of its children is the same bug as one
+      // painted under the canvas — it just looks better while failing.
+      page.getByRole("link", { name: "Projects" }),
       page.getByRole("link", { name: "Articles" }),
     ]) {
       await expect(control).toBeVisible();

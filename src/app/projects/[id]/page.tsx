@@ -29,6 +29,9 @@ export default function ProjectPage() {
   const sphere = getSphereStore();
   const router = useRouter();
 
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftDescription, setDraftDescription] = useState("");
   const [bonding, setBonding] = useState(false);
   const [atomId, setAtomId] = useState("");
   const [bondName, setBondName] = useState("");
@@ -72,6 +75,26 @@ export default function ProjectPage() {
       router.push(`/projects/${project.id}/log/${id}/edit`);
     } catch {
       // `writeError` carries the reason; the page stays as it was.
+    }
+  }
+
+  function startRenaming() {
+    if (!project) return;
+    setDraftName(project.name);
+    setDraftDescription(project.description);
+    setRenaming(true);
+  }
+
+  async function rename() {
+    if (!project) return;
+    try {
+      await store.editProject(project.id, {
+        name: draftName,
+        description: draftDescription,
+      });
+      setRenaming(false);
+    } catch {
+      // Left open, with the reason shown, so the Owner can fix it.
     }
   }
 
@@ -184,6 +207,59 @@ export default function ProjectPage() {
           >
             Bond an Atom
           </button>
+          <button
+            type="button"
+            onClick={startRenaming}
+            className="border-hairline bg-surface-1 text-ink-subtle hover:bg-surface-2 hover:text-ink rounded-md border px-3 py-1.5 text-sm font-medium"
+          >
+            Rename
+          </button>
+        </div>
+      )}
+
+      {isEditMode && renaming && (
+        <div className="border-hairline bg-surface-1 mt-4 rounded-lg border p-4">
+          <label
+            htmlFor="rename-name"
+            className="text-ink-subtle mb-1 block text-xs"
+          >
+            Name
+          </label>
+          <input
+            id="rename-name"
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            className="border-hairline bg-surface-2 text-ink mb-3 w-full rounded-md border px-3 py-2 text-sm"
+          />
+          <label
+            htmlFor="rename-description"
+            className="text-ink-subtle mb-1 block text-xs"
+          >
+            Description
+          </label>
+          <textarea
+            id="rename-description"
+            rows={2}
+            value={draftDescription}
+            onChange={(event) => setDraftDescription(event.target.value)}
+            className="border-hairline bg-surface-2 text-ink mb-4 w-full resize-none rounded-md border px-3 py-2 text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setRenaming(false)}
+              className="text-ink rounded-md px-3 py-1.5 text-sm font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void rename()}
+              className="bg-primary text-on-primary hover:bg-primary-hover rounded-md px-3.5 py-1.5 text-sm font-medium"
+            >
+              Save
+            </button>
+          </div>
         </div>
       )}
 
