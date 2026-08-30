@@ -78,16 +78,40 @@ lavender `▶ Draft` badge beside the title.
 _Avoid_: unpublished, private, WIP, pending.
 
 **Bonding**:
-A link between an Article and an Atom, carrying a Name that says how that Atom
-feeds into that Article — "How classical physics connects to economics". An
-Article can bond to many Atoms and an Atom can be bonded from many Articles;
-each pair bonds once. Read in both directions: the Atom's Dossier lists the
-Articles bonded to it, and the Article lists the Atoms it draws on.
+A link between an Atom and a piece of the Owner's work — an Article or a
+Project. Read in both directions: the Atom's Dossier lists what is bonded to it,
+and the work lists the Atoms it draws on. Each pair bonds once.
+An Article's Bonding carries a **Name** saying how that Atom feeds into that
+Article — "How classical physics connects to economics" — and cannot be saved
+without one. A Project's Name is optional: the work touched the topic, and that
+is enough to say.
 _Avoid_: citation, tag, reference, backlink.
 
+**Project**:
+A body of the Owner's work, holding a Daylog. Bonds to Atoms, optionally, and
+those bonds are read from the Atom's end only — no line is drawn in the Sphere,
+and a Project never changes an Atom's Rank or its moons. Reaches a Visitor only
+once one Daylog Entry in it has been published; before that it is the Owner's
+alone. Distinct from an Article: an Article is finished, a Project is underway.
+_Avoid_: repo, work, portfolio piece, case study.
+
+**Daylog**:
+The dated record of doing a Project — what was worked through, and when. Raw
+where an Article is composed. Read newest day first.
+_Avoid_: journal, changelog, diary, timeline.
+
+**Daylog Entry**:
+One day of a Daylog: a date and a body, and no title — the date is the heading.
+Dated by the Owner rather than by when it was typed, so a Monday written up on
+Tuesday is still filed under Monday. Two may share a date. Written as a draft
+and published deliberately, exactly as an Article is.
+_Avoid_: log, post, note, standup.
+
 **Trash**:
-Where a deleted Article waits. Independent of whether it was a Draft — an
-Article can be a Draft in the Trash, or a published one. Deleting an Article marks it rather than removing
-it — it leaves the public list at once, and the Owner can restore it or delete
-it for good.
+Where a deleted Article or Project waits. Independent of whether it was a Draft — an
+Article can be a Draft in the Trash, or a published one. Deleting marks the
+record rather than removing it — it leaves the public list at once, and the
+Owner can restore it. A single Daylog Entry has no Trash: it is deleted
+outright, because the Trash is there to protect months of work rather than one
+day of it.
 _Avoid_: archive, bin, recycle.
