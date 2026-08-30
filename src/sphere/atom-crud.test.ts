@@ -11,7 +11,6 @@ const typescript: Atom = {
   id: "atom-typescript",
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
-  learningState: "ongoing",
 };
 
 async function ownerStore(options?: {
@@ -89,7 +88,6 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      learningState: "ongoing",
     };
     const { repository, store } = await ownerStore({
       atoms: [typescript, three],
@@ -117,7 +115,6 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      learningState: "ongoing",
     };
     const { store } = await ownerStore({ atoms: [typescript, three] });
 
@@ -136,13 +133,11 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      learningState: "ongoing",
     };
     const postgres: Atom = {
       id: "atom-postgres",
       label: "Postgres",
       description: "Relational modelling.",
-      learningState: "ongoing",
     };
     const typescriptToThree: Connection = {
       id: "connection-ts-three",
@@ -185,7 +180,6 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      learningState: "ongoing",
     };
     const { store } = await ownerStore({ atoms: [typescript, three] });
     store.selectAtom(three.id);
@@ -278,12 +272,17 @@ describe("when an Atom write fails", () => {
 });
 
 /**
- * Where the Owner is with an Atom — still learning it, or done — drives the
- * colour of the moons orbiting inside it, so it is data the Sphere reads rather
- * than a note on the side.
+ * An Atom is a label and a description, and nothing else the Owner did not
+ * type.
+ *
+ * Two fields have now been taken off it — `hoursSpent` (#30) and the Learning
+ * State — and both went for the same reason: a value nothing in the site checks
+ * is worse than no value, because it reads as a fact. This is what stops a
+ * third one arriving quietly. It is deliberately a shape assertion; the point is
+ * that the store adds nothing of its own on the way through.
  */
-describe("An Atom's learning state", () => {
-  it("starts out as still being learned when the Owner does not say", async () => {
+describe("What an Atom carries", () => {
+  it("carries the label and description the Owner supplied, and an id", async () => {
     const { store } = await ownerStore({ atoms: [] });
 
     await store.addAtom({
@@ -291,54 +290,25 @@ describe("An Atom's learning state", () => {
       description: "Ownership, borrowing, and a lot of fighting.",
     });
 
-    expect(store.getState().atoms[0].learningState).toBe("ongoing");
+    expect(Object.keys(store.getState().atoms[0]).sort()).toEqual([
+      "description",
+      "id",
+      "label",
+    ]);
   });
 
-  it("keeps the state the Owner chose, through a save and a reload", async () => {
-    const { store } = await ownerStore({ atoms: [] });
-
-    await store.addAtom({
-      label: "Latin",
-      description: "Enough to read an inscription.",
-      learningState: "learned",
-    });
-
-    expect(store.getState().atoms[0].learningState).toBe("learned");
-
-    // Saved, not merely shown: it survives a round-trip through the repository.
-    await store.load();
-    expect(store.getState().atoms[0].learningState).toBe("learned");
-  });
-
-  it("leaves the state alone when an edit does not mention it", async () => {
-    const { store } = await ownerStore({ atoms: [] });
-    await store.addAtom({
-      label: "Latin",
-      description: "Enough to read an inscription.",
-      learningState: "learned",
-    });
-    const latin = store.getState().atoms[0];
-
-    // Correcting the hours is not a claim about whether the Owner is done.
-    await store.editAtom(latin.id, {
-      label: latin.label,
-      description: latin.description,
-    });
-
-    expect(store.getAtom(latin.id)?.learningState).toBe("learned");
-  });
-
-  it("moves an Atom from still-learning to learned, and back", async () => {
+  it("adds nothing of its own when the Owner edits one", async () => {
     const { store } = await ownerStore();
-    const draft = {
-      label: typescript.label,
-      description: typescript.description,
-    };
 
-    await store.editAtom(typescript.id, { ...draft, learningState: "learned" });
-    expect(store.getAtom(typescript.id)?.learningState).toBe("learned");
+    await store.editAtom(typescript.id, {
+      label: "TypeScript",
+      description: "Types at the edges, inference in the middle.",
+    });
 
-    await store.editAtom(typescript.id, { ...draft, learningState: "ongoing" });
-    expect(store.getAtom(typescript.id)?.learningState).toBe("ongoing");
+    expect(Object.keys(store.getAtom(typescript.id)!).sort()).toEqual([
+      "description",
+      "id",
+      "label",
+    ]);
   });
 });

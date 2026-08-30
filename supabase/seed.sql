@@ -117,3 +117,57 @@ from (values
 ) as c(article_title, atom_label, name)
 join public.articles art on art.title = c.article_title
 join public.atoms a on a.label = c.atom_label;
+
+
+-- A Project and a Daylog, so /projects is not an empty page on a fresh install
+-- (issue #35). One published day and one draft: the pair is the point, because
+-- the Project is only public *because* of the published one, and the draft is
+-- what a Visitor must not reach.
+insert into public.projects (id, name, description) values
+  (
+    '00000000-0000-4000-8000-000000000001',
+    'Knowledge Sphere',
+    'The interactive sphere on the homepage — atoms, connections, and the writing bonded to them.'
+  );
+
+insert into public.daylog_entries (project_id, entry_date, body, published_at) values
+  (
+    '00000000-0000-4000-8000-000000000001',
+    current_date - 9,
+    jsonb_build_object(
+      'type', 'doc',
+      'content', jsonb_build_array(
+        jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(
+          jsonb_build_object('type', 'text', 'text',
+            'Force-directed angles, rank-driven radius. Tried rank-driven angles first and the sphere read as a spiral, which said something true about the numbers and nothing true about the knowledge.')
+        ))
+      )
+    ),
+    now() - interval '9 days'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000001',
+    current_date - 2,
+    jsonb_build_object(
+      'type', 'doc',
+      'content', jsonb_build_array(
+        jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(
+          jsonb_build_object('type', 'text', 'text',
+            'Half a thought about the Ledger''s clamp. Not finished, so nobody but the Owner can read this one.')
+        ))
+      )
+    ),
+    null
+  );
+
+-- Bonded with no Name, which an Article's Bonding could not be.
+insert into public.project_bondings (project_id, atom_id, name)
+select
+  '00000000-0000-4000-8000-000000000001',
+  atoms.id,
+  case atoms.label
+    when 'Three.js' then 'Where the render loop got learned'
+    else null
+  end
+from public.atoms
+where atoms.label in ('Three.js', 'Postgres');

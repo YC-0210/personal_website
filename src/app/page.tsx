@@ -188,12 +188,28 @@ export default function Home() {
             </button>
           )}
 
-          <Link
-            href="/articles"
-            className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 fixed top-4 right-4 z-20 rounded-md border px-3 py-1.5 text-sm font-medium max-md:top-auto max-md:bottom-32"
+          {/*
+            One row, not a pile of floating chips, and it moves to the phone's
+            slot as a single unit (#35, decision 15). The legend keeps
+            `top-16 right-4` — it is not pushed down by this.
+          */}
+          <nav
+            aria-label="Sections"
+            className="fixed top-4 right-4 z-20 flex items-center gap-2 max-md:top-auto max-md:bottom-32"
           >
-            Articles
-          </Link>
+            <Link
+              href="/projects"
+              className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 rounded-md border px-3 py-1.5 text-sm font-medium"
+            >
+              Projects
+            </Link>
+            <Link
+              href="/articles"
+              className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 rounded-md border px-3 py-1.5 text-sm font-medium"
+            >
+              Articles
+            </Link>
+          </nav>
 
           {!showList && atoms.length > 0 && (
             <SphereLegend isDossierOpen={selectedAtomId !== null} />

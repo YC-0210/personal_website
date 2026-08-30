@@ -15,21 +15,18 @@ const typescript: Atom = {
   id: "atom-typescript",
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
-  learningState: "ongoing",
 };
 
 const threeJs: Atom = {
   id: "atom-three",
   label: "Three.js",
   description: "Scene graphs and shaders.",
-  learningState: "ongoing",
 };
 
 const postgres: Atom = {
   id: "atom-postgres",
   label: "Postgres",
   description: "Relational modelling.",
-  learningState: "ongoing",
 };
 
 const typescriptToThree: Connection = {
@@ -107,13 +104,11 @@ describe("sphereIndex", () => {
       id: "atom-zig",
       label: "Zig",
       description: "Manual memory, no hidden control flow.",
-      learningState: "ongoing",
     };
     const elixir: Atom = {
       id: "atom-elixir",
       label: "Elixir",
       description: "Processes all the way down.",
-      learningState: "ongoing",
     };
     const store = createSphereStore(
       new FakeSphereRepository({ atoms: [zig, elixir], connections: [] }),

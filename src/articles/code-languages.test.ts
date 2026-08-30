@@ -72,7 +72,7 @@ describe("Reading the language off a stored block", () => {
 
   it("reads anything it does not recognise as plain text", () => {
     // The boundary where the attribute stops being trusted — the same rule
-    // `toLearningState` and `atomIdFromHash` already apply. A hand-edited row,
+    // `atomIdFromHash` already applies. A hand-edited row,
     // or a language dropped from the list later, must not colour a block
     // wrongly or take the Article's page down.
     expect(toCodeLanguage("rust")).toBeNull();

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useArticles } from "@/articles/use-articles";
 import { AtomArticles } from "@/components/atom-articles";
+import { AtomProjects } from "@/components/atom-projects";
 import type { AtomDetail } from "@/sphere/store";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -66,7 +67,17 @@ export function AtomDetailPanel() {
   // Read off `shown` rather than `detail`, so the list stays put while the card
   // slides out instead of emptying first — the same rule the rest of the card
   // follows.
-  const bondedArticleRows = <AtomArticles atomId={shown.atom.id} />;
+  const bondedRows = (
+    <>
+      <AtomArticles atomId={shown.atom.id} />
+      {/*
+        Two lists, never merged. An Article is finished writing and a Project is
+        in progress, which is the whole reason #35 kept them apart — and only
+        the first of them has anything to do with this Atom's moons or its Rank.
+      */}
+      <AtomProjects atomId={shown.atom.id} />
+    </>
+  );
 
   const connectionRows = (
     <div className="mt-2 flex flex-col">
@@ -157,7 +168,7 @@ export function AtomDetailPanel() {
           CONNECTED KNOWLEDGE · {shown.connections.length}
         </p>
         {connectionRows}
-        {bondedArticleRows}
+        {bondedRows}
       </aside>
 
       {/* Mobile: the Compact Bar — the lean form that never blocks the Sphere. */}
@@ -209,7 +220,7 @@ export function AtomDetailPanel() {
             CONNECTED KNOWLEDGE · {shown.connections.length}
           </p>
           {connectionRows}
-          {bondedArticleRows}
+          {bondedRows}
 
           <p className="text-ink-tertiary mt-8 text-[13px] font-medium tracking-[0.4px]">
             ABOUT

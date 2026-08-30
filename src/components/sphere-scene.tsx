@@ -83,18 +83,14 @@ const LATTICE_CORE_SCALE = 0.5;
 const MOON_SIZE = 0.13;
 
 /**
- * The moons carry the Atom's learning state as colour: `primary-hover` for a
- * topic still being worked through, `semantic-success` for one the Owner is
- * done with. Green is the palette's single semantic colour, and DESIGN.md
- * already defines it as a *success* indicator — "done" is what the token means
- * on its own, so nothing has to be stretched to fit. Lavender is the site's
- * in-progress colour, and it is the same lavender the Draft badge carries.
+ * Every moon is `primary-hover` lavender — the site's one accent, the same one
+ * the Draft badge carries.
  *
- * Count is Rank, colour is state: the two say different things and neither can
- * be read off the other.
+ * The moons used to be two colours, carrying a Learning State the Owner set by
+ * hand. That is gone: a moon now says one thing only, and it says it by being
+ * there. Count is the whole reading.
  */
-const MOON_ONGOING_COLOR = new THREE.Color("#828fff");
-const MOON_LEARNED_COLOR = new THREE.Color("#27a644");
+const MOON_COLOR = new THREE.Color("#828fff");
 const SHELL_OPACITY = 0.5;
 const SHELL_SELECTED_OPACITY = 0.85;
 const SHELL_DIM_OPACITY = 0.12;
@@ -352,14 +348,7 @@ function AtomNodes() {
                 { length: moonCount(articleCounts[atom.id] ?? 0) },
                 (_, moon) => (
                   <mesh key={moon} geometry={coreGeometry} scale={MOON_SIZE}>
-                    <meshBasicMaterial
-                      color={
-                        atom.learningState === "learned"
-                          ? MOON_LEARNED_COLOR
-                          : MOON_ONGOING_COLOR
-                      }
-                      transparent
-                    />
+                    <meshBasicMaterial color={MOON_COLOR} transparent />
                   </mesh>
                 ),
               )}
