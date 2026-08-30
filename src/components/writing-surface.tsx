@@ -160,25 +160,30 @@ function BlockMenu({
 
 /* ------------------------------------------------------------------- surface */
 
-export interface WritingSurfaceProps {
-  title: string;
+interface WritingSurfaceBase {
   body: ArticleBody;
-  onTitleChange: (title: string) => void;
   onBodyChange: (body: ArticleBody) => void;
   /** Filled by the page: the rail's contents, which the surface does not own. */
   rail: React.ReactNode;
-  /** Where "back" goes. Always the Article itself — decision 11, no exceptions. */
+  /** Where "back" goes. One destination from either entry point — decision 11. */
   back: React.ReactNode;
 }
 
-export function WritingSurface({
-  title,
-  body,
-  onTitleChange,
-  onBodyChange,
-  rail,
-  back,
-}: WritingSurfaceProps) {
+/**
+ * What stands above the rule: an Article's title, or whatever else names the
+ * document.
+ *
+ * A Daylog Entry has no title — the date is its heading (#35, decision 11) — so
+ * the slot is a node the caller fills rather than a field this owns. Expressed
+ * as a union so a caller cannot pass both and leave it ambiguous which one the
+ * document is actually named by.
+ */
+export type WritingSurfaceProps =
+  | (WritingSurfaceBase & { title: string; onTitleChange: (title: string) => void })
+  | (WritingSurfaceBase & { heading: React.ReactNode });
+
+export function WritingSurface(props: WritingSurfaceProps) {
+  const { body, onBodyChange, rail, back } = props;
   // The body is only ever pushed *into* the editor once. After that the editor
   // is the source of truth for it; re-setting content on every keystroke would
   // fight the caret.
@@ -222,26 +227,33 @@ export function WritingSurface({
         </div>
 
         <div className="mx-auto max-w-[820px] px-8 pt-10 pb-40">
-          <label
-            htmlFor="article-title"
-            className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]"
-          >
-            TITLE
-          </label>
-          <input
-            id="article-title"
-            value={title}
-            onChange={(event) => onTitleChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              editor.commands.focus("start");
-            }}
-            placeholder="Untitled"
-            className="text-ink placeholder:text-ink-tertiary mt-1.5 w-full bg-transparent text-[26px] leading-[1.25] font-medium tracking-[-0.5px] focus:outline-none"
-          />
+          {"heading" in props ? (
+            props.heading
+          ) : (
+            <>
+              <label
+                htmlFor="article-title"
+                className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]"
+              >
+                TITLE
+              </label>
+              <input
+                id="article-title"
+                value={props.title}
+                onChange={(event) => props.onTitleChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  editor.commands.focus("start");
+                }}
+                placeholder="Untitled"
+                className="text-ink placeholder:text-ink-tertiary mt-1.5 w-full bg-transparent text-[26px] leading-[1.25] font-medium tracking-[-0.5px] focus:outline-none"
+              />
+            </>
+          )}
 
-          {/* The rule is the point: the title and the body are two things. */}
+          {/* The rule is the point: what names the document and the document
+              itself are two things. */}
           <hr className="border-hairline mt-5 mb-8" />
 
           <div className="relative">
