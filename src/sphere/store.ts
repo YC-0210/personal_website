@@ -1,6 +1,5 @@
 import {
   connectionTouchesAtom,
-  DEFAULT_LEARNING_STATE,
   otherEndOfConnection,
   type Atom,
   type AtomDraft,
@@ -8,8 +7,6 @@ import {
   type Connection,
   type ConnectionDraft,
   type ConnectionId,
-  type LearningState,
-  type SettledAtomDraft,
 } from "./domain";
 import {
   UnconfiguredAuthProvider,
@@ -296,20 +293,15 @@ export class SphereStore {
    */
   async addAtom(draft: AtomDraft): Promise<void> {
     await this.write(async () => {
-      const atom = await this.repository.createAtom(settleLearningState(draft));
+      const atom = await this.repository.createAtom(draft);
       this.applySphere([...this.state.atoms, atom], this.state.connections);
     });
   }
 
-  /** Rewrite an existing Atom. Rank and layout follow the new hours at once. */
+  /** Rewrite an existing Atom. Rank and layout follow at once. */
   async editAtom(atomId: AtomId, draft: AtomDraft): Promise<void> {
     await this.write(async () => {
-      const saved = await this.repository.updateAtom(
-        atomId,
-        // An edit that says nothing about the learning state is not a claim
-        // that the Owner has stopped being done with it.
-        settleLearningState(draft, this.getAtom(atomId)?.learningState),
-      );
+      const saved = await this.repository.updateAtom(atomId, draft);
       this.applySphere(
         this.state.atoms.map((atom) => (atom.id === atomId ? saved : atom)),
         this.state.connections,
@@ -554,23 +546,6 @@ export class SphereStore {
     this.state = Object.freeze({ ...this.state, ...patch });
     for (const listener of this.listeners) listener(this.state);
   }
-}
-
-/**
- * Fill in the learning state a draft left out, before anything is written.
- *
- * Done here rather than in the form or the repository so every write path
- * agrees: an Atom that reaches the store of record always says where the Owner
- * is with it, and no caller can create one that does not.
- */
-function settleLearningState(
-  draft: AtomDraft,
-  current?: LearningState,
-): SettledAtomDraft {
-  return {
-    ...draft,
-    learningState: draft.learningState ?? current ?? DEFAULT_LEARNING_STATE,
-  };
 }
 
 /**

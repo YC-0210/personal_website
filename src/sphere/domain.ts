@@ -9,37 +9,10 @@
 export type AtomId = string;
 export type ConnectionId = string;
 
-/**
- * Where the Owner is with an Atom: still working through it, or done with it.
- *
- * This is not Rank. Rank is how much has been written about an Atom, derived
- * from the Articles bonded to it; the learning state is a judgement the Owner
- * makes, and a topic can carry a shelf of Articles and still be ongoing. The
- * Sphere shows the two differently — Rank sets an Atom's size and how many
- * moons it carries, the learning state sets what colour those moons are.
- */
-export type LearningState = "ongoing" | "learned";
-
-/** What an Atom with no stated learning state is taken to be. */
-export const DEFAULT_LEARNING_STATE: LearningState = "ongoing";
-
 export interface Atom {
   id: AtomId;
   label: string;
   description: string;
-  learningState: LearningState;
-}
-
-/**
- * Read a learning state off whatever the store of record handed back.
- *
- * The boundary where an unknown value stops being trusted: a row written before
- * this column existed, a null, or a string nobody recognises all read as
- * `ongoing`. Nothing an Atom is *still* being learned can be wrong about — the
- * other direction would silently claim the Owner had finished with something.
- */
-export function toLearningState(value: unknown): LearningState {
-  return value === "learned" ? "learned" : DEFAULT_LEARNING_STATE;
 }
 
 export interface Connection {
@@ -66,22 +39,12 @@ export interface Connection {
  * What the Owner supplies when creating or editing an Atom. The id, and the
  * timestamps around it, belong to the store of record rather than the form.
  *
- * The learning state is optional here and required on the Atom: a draft that
- * does not mention it means "still learning", and the store is what settles
- * that before anything is written.
+ * There was a second draft type here — `SettledAtomDraft` — because the
+ * Learning State was optional on the way in and required on the Atom, so
+ * something had to settle it before a write. Nothing is left open now, so the
+ * store hands the repository exactly what the form gave it.
  */
-export type AtomDraft = Omit<SettledAtomDraft, "learningState"> & {
-  learningState?: LearningState;
-};
-
-/**
- * A draft with nothing left open — what the repository is actually handed.
- *
- * The store settles the learning state before any write, so persistence never
- * has to decide what an unspecified Atom means. Keeping that decision in one
- * place is what stops the fake and Postgres quietly disagreeing about it.
- */
-export type SettledAtomDraft = Omit<Atom, "id">;
+export type AtomDraft = Omit<Atom, "id">;
 
 /** The same, for a Connection: the two endpoints, a Strength and a description. */
 export type ConnectionDraft = Omit<Connection, "id">;

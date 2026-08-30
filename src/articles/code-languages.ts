@@ -58,7 +58,7 @@ export function highlightJsNameOf(id: CodeLanguageId): string {
  * Read a language off whatever a stored block carries.
  *
  * The boundary where the attribute stops being trusted — the rule
- * `toLearningState` and `atomIdFromHash` already apply. A block written before
+ * `atomIdFromHash` already applies. A block written before
  * #32, a hand-edited row, or a language dropped from the list later all read as
  * Plain text. Nothing an unhighlighted block can be wrong about; the other
  * direction would colour a block by a grammar the Owner never picked, or ask

@@ -5,7 +5,7 @@ import { FakeSphereRepository } from "./fake-repository";
 import { createSphereStore } from "./store";
 
 function atom(id: string): Atom {
-  return { id, label: id, description: "", learningState: "ongoing" };
+  return { id, label: id, description: "" };
 }
 
 /**

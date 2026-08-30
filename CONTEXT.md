@@ -44,19 +44,12 @@ _Avoid_: detail panel, modal, popup.
 The lean single-line summary of the selected Atom (label, Connection count) shown on small viewports in place of the full Dossier, leaving the Sphere visible. Opening it leads to the Dossier.
 _Avoid_: mini panel, toast, snackbar.
 
-**Learning State**:
-Where the Owner stands with an Atom: still working through it, or done with it.
-Not Rank — a topic can carry a shelf of Articles and still be ongoing. It is the
-colour of an Atom's moons: lavender while still being learned, green once
-learned.
-_Avoid_: status, progress, done flag.
-
 **Nameplate**:
 An Atom's label rendered beside its node in the Sphere, always visible, scaled with Rank and dimmed with the selection's emphasis.
 _Avoid_: tag, tooltip, caption.
 
 **Moon**:
-A small body orbiting inside an Atom, carrying what has been written about it: one moon per live, published Article bonded to that Atom, up to six. Its colour is the Atom's Learning State, not its Rank.
+A small body orbiting inside an Atom, carrying what has been written about it: one moon per live, published Article bonded to that Atom, up to six. Every moon is the same colour; the count is the whole reading.
 _Avoid_: dot, orb, satellite, ring.
 
 **Explanation**:

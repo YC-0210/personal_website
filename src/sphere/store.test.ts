@@ -8,21 +8,18 @@ const typescript: Atom = {
   id: "atom-typescript",
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
-  learningState: "ongoing",
 };
 
 const threeJs: Atom = {
   id: "atom-three",
   label: "Three.js",
   description: "Scene graphs and shaders.",
-  learningState: "ongoing",
 };
 
 const postgres: Atom = {
   id: "atom-postgres",
   label: "Postgres",
   description: "Relational modelling.",
-  learningState: "ongoing",
 };
 
 const typescriptToThree: Connection = {
@@ -451,7 +448,6 @@ describe("SphereStore", () => {
         id: "atom-lonely",
         label: "Woodworking",
         description: "Nothing to do with the rest of it.",
-        learningState: "ongoing",
       };
       const solitaryStore = createSphereStore(
         new FakeSphereRepository({ atoms: [lonely], connections: [] }),

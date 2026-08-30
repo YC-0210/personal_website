@@ -1,17 +1,18 @@
 "use client";
 
 /**
- * The key to the moons: what their colour means.
+ * The key to the moons: what they are counting.
  *
- * An Atom's moons say two things at once — how many there are is how many
- * Articles have been written about it, and what colour they are is where the
- * Owner stands with the topic. Neither reads on its own, so both get a line.
+ * A moon used to say two things — how many there were was how much had been
+ * written about the Atom, and what colour they were was the Owner's Learning
+ * State. The colour is gone, so one reading is left, and it is the one nobody
+ * can guess: moons are visibly countable, but nothing on the screen says what
+ * the count is *of*.
  *
  * Sits in the Sphere's upper-right corner, under the Articles link. On desktop
  * it steps aside when an Atom is selected, because the Dossier takes that
  * corner outright; on a phone the Dossier is a bar along the bottom, so it can
- * stay. The swatches are the same two colours the moons are drawn in, which is
- * the only reason this is trustworthy.
+ * stay.
  */
 export function SphereLegend({ isDossierOpen }: { isDossierOpen: boolean }) {
   return (
@@ -30,21 +31,6 @@ export function SphereLegend({ isDossierOpen }: { isDossierOpen: boolean }) {
       <p className="text-ink-subtle text-xs leading-relaxed">
         One per Article written about the Atom
       </p>
-      <Key colour="#828fff" label="Still learning" />
-      <Key colour="#27a644" label="Learned" />
     </div>
-  );
-}
-
-function Key({ colour, label }: { colour: string; label: string }) {
-  return (
-    <p className="text-ink-muted flex items-center gap-2 text-xs">
-      <span
-        aria-hidden
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: colour }}
-      />
-      {label}
-    </p>
   );
 }
