@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
+import { recoverStaleSession } from "@/lib/session-recovery";
 import { SupabaseAuthProvider } from "@/sphere/supabase-auth-provider";
 import {
   createArticleStore,
@@ -12,12 +13,23 @@ import { SupabaseArticleRepository } from "./supabase-article-repository";
 
 let store: ArticleStore | null = null;
 
-/** The one Article store the page shares, created lazily in the browser. */
+/**
+ * The one Article store the page shares, created lazily in the browser.
+ *
+ * The repository is wrapped for stale-token recovery exactly as the Sphere's
+ * is — autosave is the path that meets an expired token most often, because it
+ * is the one that fires after the Owner has been away from the keyboard.
+ */
 export function getArticleStore(): ArticleStore {
-  store ??= createArticleStore(
-    new SupabaseArticleRepository(),
-    new SupabaseAuthProvider(),
-  );
+  if (!store) {
+    const auth = new SupabaseAuthProvider();
+    store = createArticleStore(
+      recoverStaleSession(new SupabaseArticleRepository(), () =>
+        auth.refreshSession(),
+      ),
+      auth,
+    );
+  }
   return store;
 }
 

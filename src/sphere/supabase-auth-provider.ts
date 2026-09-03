@@ -37,6 +37,21 @@ export class SupabaseAuthProvider implements AuthProvider {
     return { email: signedInEmail };
   }
 
+  /**
+   * Force a new access token from the refresh token.
+   *
+   * `refreshSession` rather than `getSession`: `getSession` hands back the
+   * token it already holds whenever that token is still inside its expiry
+   * margin, which is exactly the token the server has just refused.
+   */
+  async refreshSession(): Promise<OwnerSession | null> {
+    const { data, error } = await this.resolveClient().auth.refreshSession();
+    if (error) throw new Error(error.message);
+
+    const email = data.session?.user.email;
+    return email ? { email } : null;
+  }
+
   async signOut(): Promise<void> {
     const { error } = await this.resolveClient().auth.signOut();
     if (error) throw new Error(error.message);
