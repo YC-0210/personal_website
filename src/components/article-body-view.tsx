@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 
+import { imageInNode } from "@/articles/article-image";
 import type { ArticleBody, ArticleBodyNode } from "@/articles/domain";
 
 /**
@@ -62,6 +63,18 @@ function renderNode(node: ArticleBodyNode): ReactNode {
       );
     case "horizontalRule":
       return <hr />;
+    case "image": {
+      // `imageInNode` decides what is drawable and what the alt text is; a
+      // node it refuses is dropped, like any other node this does not know.
+      const image = imageInNode(node);
+      if (!image) return null;
+      // A plain <img>, not next/image: the sizes are the Owner's and the
+      // bucket's, and the optimizer wants a build-time manifest it cannot have.
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image.src} alt={image.alt} loading="lazy" />
+      );
+    }
     default:
       return null;
   }

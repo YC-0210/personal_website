@@ -53,10 +53,39 @@ export const BONDINGS = [
   { id: "b2", article_id: "art2", atom_id: "a1", name: "What the draft owes this Atom" },
 ];
 
+/**
+ * A one-pixel PNG. Small enough to inline, real enough that the browser draws
+ * it rather than showing a broken image where an Image should be.
+ */
+export const ONE_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 /** Answer every Supabase read from the fixtures above. No project, no secrets. */
 export async function stubSupabase(page: Page): Promise<void> {
   await page.route("**/stub.supabase.co/**", (route) => {
     const url = route.request().url();
+
+    // Storage, both halves of it: the upload the Owner's picker triggers, and
+    // the fetch the browser makes for the picture once it is on the page.
+    if (url.includes("/storage/v1/object/public/")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        headers: { "access-control-allow-origin": "*" },
+        body: ONE_PIXEL_PNG,
+      });
+    }
+    if (url.includes("/storage/v1/object/")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "access-control-allow-origin": "*" },
+        body: JSON.stringify({ Key: "article-images/uploaded.png" }),
+      });
+    }
+
     const body = url.includes("/atoms")
       ? ATOMS
       : url.includes("/connections")

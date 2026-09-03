@@ -1,3 +1,4 @@
+import Image from "@tiptap/extension-image";
 import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -10,8 +11,12 @@ import StarterKit from "@tiptap/starter-kit";
  * carries is not stripped afterwards, it is never representable in the first
  * place.
  *
- * Images are deliberately absent (decision 3): an image needs a Storage bucket,
- * an upload path, RLS and size limits, and that is its own ticket.
+ * Images are now in, and they arrived with the bucket, the upload path, the
+ * RLS and the size limits that decision 3 said they would need — see
+ * `supabase/migrations/20260903000000_article_images_bucket.sql` and ADR-0010.
+ * `allowBase64` is off deliberately: a pasted `data:` image would embed a whole
+ * picture in the row, and `data:` is exactly what `imageInNode` refuses to
+ * draw on the way out.
  *
  * `@/components/article-body-view` renders whatever this set can produce. The
  * two move together — adding an extension here without teaching the view about
@@ -23,6 +28,7 @@ export const ARTICLE_EXTENSIONS = [
     heading: { levels: [2, 3] },
     link: { openOnClick: false, autolink: true },
   }),
+  Image.configure({ allowBase64: false }),
   Placeholder.configure({
     placeholder: ({ node }: { node: { type: { name: string } } }) =>
       node.type.name === "heading" ? "Heading" : "Write, or press / for a block",

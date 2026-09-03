@@ -88,6 +88,14 @@ each pair bonds once. Read in both directions: the Atom's Dossier lists the
 Articles bonded to it, and the Article lists the Atoms it draws on.
 _Avoid_: citation, tag, reference, backlink.
 
+**Image**:
+A picture the Owner uploads while writing, kept in the site's own bucket rather
+than hotlinked from someone else's server. Dropped, pasted or picked from the
+toolbar — all three are the same gesture. Carries the words that stand in for it
+when it cannot be seen. An Image in a Draft is stored under an unguessable path
+rather than kept private outright; ADR-0010 records that trade.
+_Avoid_: photo, media, attachment, asset, figure.
+
 **Trash**:
 Where a deleted Article waits. Independent of whether it was a Draft — an
 Article can be a Draft in the Trash, or a published one. Deleting an Article marks it rather than removing

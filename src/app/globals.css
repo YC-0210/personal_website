@@ -112,6 +112,13 @@ body {
   font-size: 14px; line-height: 1.55;
 }
 .article-prose pre code { background: none; padding: 0; }
+.article-prose img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px; margin-top: 1.6em; margin-bottom: 1.6em;
+}
+/* The one the caret is on, so the Owner can see what they are about to move. */
+.article-prose img.ProseMirror-selectednode { outline: 2px solid var(--color-primary); }
 .article-prose hr { border: 0; border-top: 1px solid var(--color-hairline); margin: 2em 0; }
 
 /* Tiptap's placeholder, shown on the empty line the caret is sitting on. */

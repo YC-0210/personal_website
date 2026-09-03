@@ -4,6 +4,12 @@ import {
   type OwnerSession,
 } from "@/sphere/auth";
 import { EMPTY_BODY } from "./article-body";
+import { refusalFor } from "./article-image";
+import {
+  UnconfiguredImageStore,
+  type ArticleImage,
+  type ImageStore,
+} from "./image-store";
 import type {
   Article,
   ArticleDraft,
@@ -65,6 +71,7 @@ export class ArticleStore {
   constructor(
     private readonly repository: ArticleRepository,
     private readonly auth: AuthProvider = new UnconfiguredAuthProvider(),
+    private readonly images: ImageStore = new UnconfiguredImageStore(),
   ) {}
 
   getState(): ArticleState {
@@ -147,6 +154,28 @@ export class ArticleStore {
       const saved = await this.repository.updateArticle(articleId, draft);
       this.replace(saved);
     });
+  }
+
+  /**
+   * Put an Image in an Article and say where to point at it.
+   *
+   * The document is not touched here — the editor holds the body and is the
+   * one that can put a picture at the caret, so this returns the URL and lets
+   * it. Autosave writes the result out like any other edit.
+   *
+   * The file is judged before it is sent, so an Owner who picks the wrong
+   * thing is told immediately rather than after waiting for an upload the
+   * bucket was always going to refuse.
+   */
+  async uploadImage(articleId: ArticleId, file: File): Promise<ArticleImage> {
+    let image: ArticleImage | null = null;
+    await this.write(async () => {
+      const refusal = refusalFor(file);
+      if (refusal) throw new Error(refusal);
+
+      image = await this.images.upload(articleId, file);
+    });
+    return image!;
   }
 
   /** Publish a draft. The one deliberate act that makes writing public. */
@@ -391,6 +420,7 @@ function requireBondingName(name: string): void {
 export function createArticleStore(
   repository: ArticleRepository,
   auth?: AuthProvider,
+  images?: ImageStore,
 ): ArticleStore {
-  return new ArticleStore(repository, auth);
+  return new ArticleStore(repository, auth, images);
 }
