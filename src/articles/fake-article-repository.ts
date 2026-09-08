@@ -22,7 +22,7 @@ export interface FakeArticleRepositoryOptions {
 export class FakeArticleRepository implements ArticleRepository {
   private articles: Article[];
   private bondings: Bonding[];
-  private readonly now: string;
+  private now: string;
   private failure: Error | null = null;
   private nextId = 1;
 
@@ -121,6 +121,14 @@ export class FakeArticleRepository implements ArticleRepository {
   async deleteBonding(bondingId: BondingId): Promise<void> {
     if (this.failure) throw this.failure;
     this.bondings = this.bondings.filter((bonding) => bonding.id !== bondingId);
+  }
+
+  /**
+   * Move the fake's clock. Publishing stamps `now`, so this is how a test says
+   * "and then, later, it was published again" without a real clock.
+   */
+  setNow(now: string): void {
+    this.now = now;
   }
 
   /** Replace the stored rows, as if something changed behind the store's back. */

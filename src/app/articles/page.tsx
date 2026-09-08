@@ -7,6 +7,7 @@ import { useState } from "react";
 import { excerptOf } from "@/articles/article-body";
 import { EMPTY_BODY } from "@/articles/article-body";
 import type { ArticleId } from "@/articles/domain";
+import { publishedOn } from "@/articles/published-date";
 import { getArticleStore, useArticles } from "@/articles/use-articles";
 import { DraftBadge } from "@/components/draft-badge";
 
@@ -119,6 +120,16 @@ export default function ArticlesPage() {
                     contain a draft to badge. */}
                 {article.publishedAt === null && <DraftBadge />}
               </h2>
+              {/* Where a reader decides what to open, so recency belongs here
+                  and not only on the Article itself (#31). A draft shows
+                  nothing — it already carries its badge. */}
+              {article.publishedAt !== null && (
+                <p className="text-ink-tertiary mt-1 text-xs">
+                  <time dateTime={article.publishedAt}>
+                    {publishedOn(article.publishedAt)}
+                  </time>
+                </p>
+              )}
               <p className="text-ink-subtle mt-1 line-clamp-2 text-sm leading-relaxed">
                 {excerptOf(article.body)}
               </p>

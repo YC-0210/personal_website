@@ -468,6 +468,22 @@ Linear's depth is carried by surface ladder + hairline borders. The brand resist
 **`status-badge`** — Small status pill.
 - Background `{colors.surface-2}`, text `{colors.ink-muted}`, type `{typography.caption}`, rounded `{rounded.pill}`, padding 2px 8px.
 
+**`code-block`** — A block of code in an Article, in one of seven languages.
+- Background `{colors.surface-1}`, 1px `{colors.hairline}` border, rounded 8px, padding 14px 16px, mono at 14px/1.55. The language picker is a native `select` on the block's top right: `{colors.surface-2}`, `{colors.hairline}` border, `{colors.ink-subtle}`, `{typography.caption}`.
+- **Syntax roles.** Derived from tokens above rather than invented, which is what keeps a code block inside ADR-0004's exemption. Code sets at 14px — normal text under WCAG — so every colour clears 4.5:1 against `{colors.surface-1}`:
+
+| Role | Token | On `surface-1` |
+| --- | --- | --- |
+| Names — function, class, tag name, heading, variable | `{colors.ink}` | 17.90:1 |
+| The code's own body, punctuation, parameters | `{colors.ink-muted}` | 13.04:1 |
+| Structure — keyword, type, operator, angle brackets, bullet | `{colors.primary-hover}` | 6.64:1 |
+| Quantities — number, literal, built-in | `{colors.ink-subtle}` | 5.86:1 |
+| Comments and quoted prose (*italic*) | `{colors.ink-subtle}` | 5.86:1 |
+| Values the author wrote — string, regexp, link, attribute | `{colors.brand-secure}` | 4.96:1 |
+
+- **Two tokens were measured and refused.** `{colors.ink-tertiary}` (3.30:1) and `{colors.primary}` (4.05:1) both fail AA at this size. That leaves five colours for six things to say, so **comments are separated from quantities by italic** rather than by a sixth colour — a style carries the distinction where a colour could not be afforded honestly.
+- **`{colors.semantic-success}` is deliberately absent.** Green means *done* on this site and nothing else; a string is not done. Syntax schemes conventionally colour strings green, and this one does not.
+
 ### Navigation
 
 **`top-nav`** — Sticky dark bar with the Linear wordmark left, primary nav links centered, and a `button-secondary` ("Sign in") + `button-primary` ("Get started") pair right.

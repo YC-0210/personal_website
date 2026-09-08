@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useArticles } from "@/articles/use-articles";
 import { AtomArticles } from "@/components/atom-articles";
+import { AtomProjects } from "@/components/atom-projects";
 import type { AtomDetail } from "@/sphere/store";
 import { getSphereStore, useSphere } from "@/sphere/use-sphere";
 
@@ -12,7 +13,7 @@ import { getSphereStore, useSphere } from "@/sphere/use-sphere";
  *
  * On desktop, selecting an Atom slides a card in from the right with the
  * Atom's full detail and its Connections. On mobile the selection shows only
- * the Compact Bar — label, hours, Connection count — so the Sphere, its
+ * the Compact Bar — label and Connection count — so the Sphere, its
  * Nameplates and its lit Connections stay visible; opening the bar takes the
  * whole screen with the connected knowledge leading (the Takeover chosen from
  * the ADR-0004 prototypes).
@@ -66,7 +67,17 @@ export function AtomDetailPanel() {
   // Read off `shown` rather than `detail`, so the list stays put while the card
   // slides out instead of emptying first — the same rule the rest of the card
   // follows.
-  const bondedArticleRows = <AtomArticles atomId={shown.atom.id} />;
+  const bondedRows = (
+    <>
+      <AtomArticles atomId={shown.atom.id} />
+      {/*
+        Two lists, never merged. An Article is finished writing and a Project is
+        in progress, which is the whole reason #35 kept them apart — and only
+        the first of them has anything to do with this Atom's moons or its Rank.
+      */}
+      <AtomProjects atomId={shown.atom.id} />
+    </>
+  );
 
   const connectionRows = (
     <div className="mt-2 flex flex-col">
@@ -149,9 +160,6 @@ export function AtomDetailPanel() {
         <h2 className="text-ink mt-2 text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
           {shown.atom.label}
         </h2>
-        <p className="bg-surface-2 text-ink-muted mt-2 inline-block rounded-full px-2 py-0.5 text-xs">
-          {shown.atom.hoursSpent.toLocaleString()} hrs
-        </p>
         <p className="text-ink-muted mt-4 text-sm leading-relaxed">
           {shown.atom.description}
         </p>
@@ -160,7 +168,7 @@ export function AtomDetailPanel() {
           CONNECTED KNOWLEDGE · {shown.connections.length}
         </p>
         {connectionRows}
-        {bondedArticleRows}
+        {bondedRows}
       </aside>
 
       {/* Mobile: the Compact Bar — the lean form that never blocks the Sphere. */}
@@ -175,7 +183,6 @@ export function AtomDetailPanel() {
               {shown.atom.label}
             </span>
             <span className="text-ink-subtle text-xs">
-              {shown.atom.hoursSpent.toLocaleString()} hrs ·{" "}
               {shown.connections.length} connections
             </span>
           </span>
@@ -199,9 +206,6 @@ export function AtomDetailPanel() {
               <h2 className="text-ink mt-1 text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
                 {shown.atom.label}
               </h2>
-              <p className="bg-surface-2 text-ink-muted mt-2 inline-block rounded-full px-2 py-0.5 text-xs">
-                {shown.atom.hoursSpent.toLocaleString()} hrs
-              </p>
             </div>
             <button
               type="button"
@@ -216,7 +220,7 @@ export function AtomDetailPanel() {
             CONNECTED KNOWLEDGE · {shown.connections.length}
           </p>
           {connectionRows}
-          {bondedArticleRows}
+          {bondedRows}
 
           <p className="text-ink-tertiary mt-8 text-[13px] font-medium tracking-[0.4px]">
             ABOUT

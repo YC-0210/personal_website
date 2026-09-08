@@ -136,7 +136,8 @@ function BlockMenu({
   editor: Editor;
   onDone: () => void;
   at: { top: number; left: number };
-  onPickImage: () => void;
+  /** Null when this surface has no uploader — the entry is left out entirely. */
+  onPickImage: (() => void) | null;
 }) {
   return (
     <div
@@ -163,19 +164,21 @@ function BlockMenu({
       ))}
 
       {/* Not a block that can be `run`: it has to go and get a file first. */}
-      <button
-        type="button"
-        role="menuitem"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
-          onDone();
-          onPickImage();
-        }}
-        className="text-ink-muted hover:bg-surface-4 hover:text-ink flex items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm"
-      >
-        {IMAGE_BLOCK.label}
-        <span className="text-ink-tertiary text-xs">{IMAGE_BLOCK.hint}</span>
-      </button>
+      {onPickImage && (
+        <button
+          type="button"
+          role="menuitem"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            onDone();
+            onPickImage();
+          }}
+          className="text-ink-muted hover:bg-surface-4 hover:text-ink flex items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm"
+        >
+          {IMAGE_BLOCK.label}
+          <span className="text-ink-tertiary text-xs">{IMAGE_BLOCK.hint}</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -195,14 +198,14 @@ function BlockMenu({
  */
 function useImageInsertion(
   editor: Editor | null,
-  uploadImage: (file: File) => Promise<{ url: string }>,
+  uploadImage?: (file: File) => Promise<{ url: string }>,
 ) {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
 
   const insert = useCallback(
     async (files: File[]) => {
-      if (!editor || files.length === 0) return;
+      if (!editor || !uploadImage || files.length === 0) return;
       setNotice(null);
 
       for (const file of files) {
@@ -223,7 +226,9 @@ function useImageInsertion(
     [editor, uploadImage],
   );
 
-  return { insert, notice, setNotice, pending };
+  // What the surface gates every image affordance on: no uploader, no button,
+  // no picker, and drop and paste fall back to ProseMirror's own handling.
+  return { insert, notice, setNotice, pending, enabled: Boolean(uploadImage) };
 }
 
 /** The image files out of a drop or a paste, ignoring everything else in it. */
@@ -235,32 +240,42 @@ function imageFilesIn(transfer: DataTransfer | null): File[] {
 
 /* ------------------------------------------------------------------- surface */
 
-export interface WritingSurfaceProps {
-  title: string;
+interface WritingSurfaceBase {
   body: ArticleBody;
-  onTitleChange: (title: string) => void;
   onBodyChange: (body: ArticleBody) => void;
   /** Filled by the page: the rail's contents, which the surface does not own. */
   rail: React.ReactNode;
-  /** Where "back" goes. Always the Article itself — decision 11, no exceptions. */
+  /** Where "back" goes. One destination from either entry point — decision 11. */
   back: React.ReactNode;
   /**
    * Put a picture in the bucket and say where it ended up. Filled by the page,
-   * because the Article an Image belongs to is the page's business — the
+   * because the document an Image belongs to is the page's business — the
    * surface only knows where the caret is.
+   *
+   * Optional, and absent for a Daylog Entry. An Image is filed under the
+   * *Article* it belongs to, in a bucket named for Articles, under the
+   * Draft-privacy trade ADR-0010 argues about Articles. None of that has been
+   * decided for an Entry, so rather than quietly reuse it, a surface with no
+   * uploader simply does not offer the affordance.
    */
-  uploadImage: (file: File) => Promise<{ url: string }>;
+  uploadImage?: (file: File) => Promise<{ url: string }>;
 }
 
-export function WritingSurface({
-  title,
-  body,
-  onTitleChange,
-  onBodyChange,
-  rail,
-  back,
-  uploadImage,
-}: WritingSurfaceProps) {
+/**
+ * What stands above the rule: an Article's title, or whatever else names the
+ * document.
+ *
+ * A Daylog Entry has no title — the date is its heading (#35, decision 11) — so
+ * the slot is a node the caller fills rather than a field this owns. Expressed
+ * as a union so a caller cannot pass both and leave it ambiguous which one the
+ * document is actually named by.
+ */
+export type WritingSurfaceProps =
+  | (WritingSurfaceBase & { title: string; onTitleChange: (title: string) => void })
+  | (WritingSurfaceBase & { heading: React.ReactNode });
+
+export function WritingSurface(props: WritingSurfaceProps) {
+  const { body, onBodyChange, rail, back, uploadImage } = props;
   // The body is only ever pushed *into* the editor once. After that the editor
   // is the source of truth for it; re-setting content on every keystroke would
   // fight the caret.
@@ -279,7 +294,7 @@ export function WritingSurface({
       attributes: { class: "article-prose focus:outline-none" },
       handleDrop: (_view, event) => {
         const files = imageFilesIn((event as DragEvent).dataTransfer);
-        if (files.length === 0) return false;
+        if (files.length === 0 || !insertImages.current) return false;
         // Handled here, so ProseMirror does not also try to make sense of it.
         event.preventDefault();
         insertImages.current?.(files);
@@ -287,7 +302,7 @@ export function WritingSurface({
       },
       handlePaste: (_view, event) => {
         const files = imageFilesIn(event.clipboardData);
-        if (files.length === 0) return false;
+        if (files.length === 0 || !insertImages.current) return false;
         event.preventDefault();
         insertImages.current?.(files);
         return true;
@@ -309,7 +324,9 @@ export function WritingSurface({
   const picker = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    insertImages.current = (files) => void insertion.insert(files);
+    insertImages.current = insertion.enabled
+      ? (files) => void insertion.insert(files)
+      : null;
   }, [insertion]);
 
   if (!editor) return null;
@@ -326,6 +343,8 @@ export function WritingSurface({
               <MarkButton key={mark.title} editor={editor} mark={mark} />
             ))}
 
+            {insertion.enabled && (
+              <>
             <span className="bg-hairline mx-1 h-5 w-px" />
 
             <button
@@ -381,6 +400,8 @@ export function WritingSurface({
                 Uploading{insertion.pending > 1 ? ` ${insertion.pending}` : ""}…
               </span>
             )}
+              </>
+            )}
           </div>
 
           {insertion.notice && (
@@ -400,26 +421,33 @@ export function WritingSurface({
         </div>
 
         <div className="mx-auto max-w-[820px] px-8 pt-10 pb-40">
-          <label
-            htmlFor="article-title"
-            className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]"
-          >
-            TITLE
-          </label>
-          <input
-            id="article-title"
-            value={title}
-            onChange={(event) => onTitleChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              editor.commands.focus("start");
-            }}
-            placeholder="Untitled"
-            className="text-ink placeholder:text-ink-tertiary mt-1.5 w-full bg-transparent text-[26px] leading-[1.25] font-medium tracking-[-0.5px] focus:outline-none"
-          />
+          {"heading" in props ? (
+            props.heading
+          ) : (
+            <>
+              <label
+                htmlFor="article-title"
+                className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]"
+              >
+                TITLE
+              </label>
+              <input
+                id="article-title"
+                value={props.title}
+                onChange={(event) => props.onTitleChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  editor.commands.focus("start");
+                }}
+                placeholder="Untitled"
+                className="text-ink placeholder:text-ink-tertiary mt-1.5 w-full bg-transparent text-[26px] leading-[1.25] font-medium tracking-[-0.5px] focus:outline-none"
+              />
+            </>
+          )}
 
-          {/* The rule is the point: the title and the body are two things. */}
+          {/* The rule is the point: what names the document and the document
+              itself are two things. */}
           <hr className="border-hairline mt-5 mb-8" />
 
           <div className="relative">
@@ -429,7 +457,9 @@ export function WritingSurface({
                 editor={editor}
                 onDone={close}
                 at={at}
-                onPickImage={() => picker.current?.click()}
+                onPickImage={
+                  insertion.enabled ? () => picker.current?.click() : null
+                }
               />
             )}
           </div>

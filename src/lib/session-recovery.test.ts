@@ -15,8 +15,6 @@ function jwtExpired(): Error {
 const draft = {
   label: "Three.js",
   description: "Scene graphs and shaders.",
-  hoursSpent: 120,
-  learningState: "ongoing" as const,
 };
 
 describe("recovering a stale session", () => {

@@ -133,8 +133,8 @@ describe("Owner authentication", () => {
 
   it("leaves the visitor-facing Sphere untouched either way", async () => {
     const atoms = [
-      { id: "a", label: "A", description: "", hoursSpent: 100, learningState: "ongoing" as const },
-      { id: "b", label: "B", description: "", hoursSpent: 50, learningState: "learned" as const },
+      { id: "a", label: "A", description: "" },
+      { id: "b", label: "B", description: "" },
     ];
     const connections = [
       {

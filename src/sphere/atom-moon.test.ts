@@ -38,41 +38,45 @@ describe("an Atom's moon", () => {
 });
 
 /**
- * How many moons an Atom carries: one more for every 250 hours devoted to it.
+ * How many moons an Atom carries: one for every Article written about it.
  *
- * This is the one thing in the Sphere that reads off raw hours rather than
- * Rank. Rank is relative — it says where an Atom stands against the others, and
- * it moves when a different Atom is edited. A count of moons is absolute: four
- * moons means a thousand hours whatever else the Sphere holds, so an Atom's
- * moons only change when its own hours do.
+ * This is the one thing in the Sphere that reads off an absolute count rather
+ * than Rank. Rank is relative — it says where an Atom stands against the
+ * others, and it moves when a *different* Atom is written about. A count of
+ * moons is absolute: four moons means four Articles whatever else the Sphere
+ * holds, so an Atom's moons only change when its own writing does.
  */
 describe("how many moons an Atom carries", () => {
-  it("carries none until the first 250 hours are in", () => {
-    // Below the first block there is nothing to count, and an empty orbit is
-    // the honest reading of that.
+  it("carries none until something has been written about it", () => {
+    // An Atom nobody has written about has earned nothing to show, and an
+    // empty orbit is the honest reading of that.
     expect(moonCount(0)).toBe(0);
-    expect(moonCount(249)).toBe(0);
   });
 
-  it("carries one moon for every whole 250 hours devoted", () => {
-    expect(moonCount(250)).toBe(1);
-    expect(moonCount(499)).toBe(1);
-    expect(moonCount(500)).toBe(2);
-    expect(moonCount(1000)).toBe(4);
+  it("carries one moon for every Article written about it", () => {
+    expect(moonCount(1)).toBe(1);
+    expect(moonCount(2)).toBe(2);
+    expect(moonCount(5)).toBe(5);
   });
 
   it("stops adding once they could no longer be counted at a glance", () => {
     // They share one orbit inside a shell that is a few dozen pixels across.
     // Past this they overlap, and a count you cannot take is not a reading.
-    expect(moonCount(10_000)).toBe(MAX_MOONS);
-    expect(moonCount(Number.MAX_SAFE_INTEGER)).toBe(MAX_MOONS);
+    expect(moonCount(7)).toBe(MAX_MOONS);
+    expect(moonCount(200)).toBe(MAX_MOONS);
   });
 
-  it("draws none for hours that are missing or nonsense", () => {
-    // `hours_spent` arrives as a string from Postgres and is `Number()`d, so a
-    // null column would make that NaN. An empty orbit is the safe reading:
-    // NaN/250 would otherwise be NaN moons, and `Array.from` would throw.
+  it("draws none for a count that is missing or nonsense", () => {
+    // The count is derived rather than stored, so this is a guard against a
+    // caller rather than against a column: NaN moons would make `Array.from`
+    // throw, and an empty orbit is the safe reading.
     expect(moonCount(Number.NaN)).toBe(0);
-    expect(moonCount(-500)).toBe(0);
+    expect(moonCount(-3)).toBe(0);
+  });
+
+  it("counts whole Articles only", () => {
+    // Nothing produces a fraction today; this pins the reading so a future
+    // caller handing one over cannot quietly buy a moon with it.
+    expect(moonCount(2.9)).toBe(2);
   });
 });

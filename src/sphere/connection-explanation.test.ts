@@ -11,16 +11,12 @@ const typescript: Atom = {
   id: "atom-typescript",
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
-  hoursSpent: 400,
-  learningState: "ongoing",
 };
 
 const postgres: Atom = {
   id: "atom-postgres",
   label: "Postgres",
   description: "Relational modelling.",
-  hoursSpent: 100,
-  learningState: "ongoing",
 };
 
 async function ownerStore(options?: { connections?: Connection[] }) {

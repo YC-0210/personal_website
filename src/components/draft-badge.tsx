@@ -6,7 +6,7 @@
  *
  * A `status-badge` per `DESIGN.md`, filled lavender rather than `surface-2`:
  * `{colors.primary-hover}` #828fff is the "in progress" colour everywhere on
- * this site, the same one the moons of an Atom still being learned carry.
+ * this site, and the one every Atom's moons are drawn in.
  *
  * The label is `canvas`, not white. White on #828fff measures 2.9:1 and fails
  * WCAG AA at any size; `canvas` on it measures 7.3:1.

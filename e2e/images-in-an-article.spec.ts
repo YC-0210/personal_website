@@ -192,3 +192,47 @@ test.describe("A reader", () => {
     await expect(image).toHaveAttribute("alt", "A borrowed diagram");
   });
 });
+
+/**
+ * The gate that the Articles/Daylog merge created.
+ *
+ * `WritingSurface` is shared, but an Image is filed under the *Article* it
+ * belongs to, in a bucket named for Articles, under the Draft-privacy trade
+ * ADR-0010 argues about Articles. None of that is decided for a Daylog Entry,
+ * so the surface offers pictures only where there is somewhere to put them —
+ * rather than showing a control that would fail, or quietly filing a day's
+ * picture under an Article that does not exist.
+ */
+test.describe("A Daylog Entry, which has nowhere to put a picture", () => {
+  test("is not offered one", async ({ page }) => {
+    test.skip(
+      test.info().project.name !== "desktop",
+      "Writing is desktop-only by decision — ADR-0009.",
+    );
+
+    await signInAsOwner(page);
+    await stubSupabase(page);
+    await page.goto("/projects/proj1/log/day2/edit");
+
+    // The surface is open and writable — this is the Entry editor, not a
+    // refusal page — and only the picture controls are withheld.
+    await expect(page.locator('[contenteditable="true"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
+
+    await expect(page.getByRole("button", { name: "Image" })).toHaveCount(0);
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+  });
+
+  test("still offers one on an Article, so the gate is the uploader and not the merge", async ({
+    page,
+  }) => {
+    test.skip(test.info().project.name !== "desktop", "Desktop-only surface.");
+
+    await signInAsOwner(page);
+    await stubSupabase(page);
+    await page.goto("/articles/art1/edit");
+
+    await expect(page.getByRole("button", { name: "Image" })).toBeVisible();
+    await expect(page.locator('input[type="file"]')).toHaveCount(1);
+  });
+});

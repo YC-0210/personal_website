@@ -11,8 +11,6 @@ const typescript: Atom = {
   id: "atom-typescript",
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
-  hoursSpent: 400,
-  learningState: "ongoing",
 };
 
 async function ownerStore(options?: {
@@ -43,14 +41,13 @@ describe("Owner Atom CRUD", () => {
     await store.addAtom({
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      hoursSpent: 120,
     });
 
     const added = store
       .getState()
       .atoms.find((atom) => atom.label === "Three.js");
     expect(added).toBeDefined();
-    expect(added!.hoursSpent).toBe(120);
+    expect(added!.description).toBe("Scene graphs and shaders.");
     expect(store.hasAtom(added!.id)).toBe(true);
 
     // Saved, not just shown: it survives a round-trip through the repository.
@@ -58,33 +55,31 @@ describe("Owner Atom CRUD", () => {
     expect(store.getAtom(added!.id)).toEqual(added);
   });
 
-  it("lays the new Atom out and re-Ranks the Sphere around it, without reloading", async () => {
+  it("lays the new Atom out at once, without reloading the Sphere", async () => {
     const { repository, store } = await ownerStore();
+    store.setArticleCounts({ [typescript.id]: 4 });
     const loadsBefore = repository.loadCount;
-    // The incumbent holds the top Rank until something outranks it.
+    // The incumbent holds the top Rank: it is the only one written about.
     expect(store.getState().layout[typescript.id].rank).toBe(1);
 
-    // Twice the hours of the Atom that held the top Rank, so if Rank did not
-    // recompute the incumbent would still be the biggest.
     await store.addAtom({
       label: "Postgres",
       description: "Relational modelling.",
-      hoursSpent: 800,
     });
 
     const { atoms, layout } = store.getState();
     const postgres = atoms.find((atom) => atom.label === "Postgres")!;
+    // Placed immediately, and placed where an Atom nobody has written about
+    // belongs: rank 0, out on the shell. Rank is earned by being written
+    // about (#30), so a newcomer cannot arrive holding any of it.
     expect(layout[postgres.id]).toBeDefined();
-    expect(layout[postgres.id].rank).toBe(1);
-    // The incumbent was demoted by the newcomer rather than left where it was.
-    expect(layout[typescript.id].rank).toBeLessThan(1);
-    expect(layout[typescript.id].rank).toBeGreaterThan(0);
-    expect(layout[postgres.id].size).toBeGreaterThan(
-      layout[typescript.id].size,
-    );
-    expect(layout[postgres.id].orbitRadius).toBeLessThan(
+    expect(layout[postgres.id].rank).toBe(0);
+    expect(layout[postgres.id].size).toBeLessThan(layout[typescript.id].size);
+    expect(layout[postgres.id].orbitRadius).toBeGreaterThan(
       layout[typescript.id].orbitRadius,
     );
+    // And the incumbent was not disturbed by its arrival.
+    expect(layout[typescript.id].rank).toBe(1);
     expect(repository.loadCount).toBe(loadsBefore);
   });
 
@@ -93,8 +88,6 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      hoursSpent: 100,
-      learningState: "ongoing",
     };
     const { repository, store } = await ownerStore({
       atoms: [typescript, three],
@@ -104,21 +97,16 @@ describe("Owner Atom CRUD", () => {
     await store.editAtom(three.id, {
       label: "Three.js",
       description: "Scene graphs, materials, and the render loop.",
-      hoursSpent: 800,
     });
 
     const edited = store.getAtom(three.id)!;
     expect(edited.description).toBe(
       "Scene graphs, materials, and the render loop.",
     );
-    expect(edited.hoursSpent).toBe(800);
     expect(store.getState().atoms).toHaveLength(2);
-    // The edited Atom overtook the one that used to hold the top Rank.
-    expect(store.getState().layout[three.id].rank).toBe(1);
-    expect(store.getState().layout[typescript.id].rank).toBeLessThan(1);
-    expect(store.getState().layout[three.id].size).toBeGreaterThan(
-      store.getState().layout[typescript.id].size,
-    );
+    // Rank is no longer editable from here: it comes from the Articles written
+    // about an Atom (#30), so an edit changes what the Atom *says* and nothing
+    // about where it sits. `rank-and-layout.test.ts` holds the other half.
     expect(repository.loadCount).toBe(loadsBefore);
   });
 
@@ -127,8 +115,6 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      hoursSpent: 100,
-      learningState: "ongoing",
     };
     const { store } = await ownerStore({ atoms: [typescript, three] });
 
@@ -147,15 +133,11 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      hoursSpent: 100,
-      learningState: "ongoing",
     };
     const postgres: Atom = {
       id: "atom-postgres",
       label: "Postgres",
       description: "Relational modelling.",
-      hoursSpent: 200,
-      learningState: "ongoing",
     };
     const typescriptToThree: Connection = {
       id: "connection-ts-three",
@@ -198,8 +180,6 @@ describe("Owner Atom CRUD", () => {
       id: "atom-three",
       label: "Three.js",
       description: "Scene graphs and shaders.",
-      hoursSpent: 100,
-      learningState: "ongoing",
     };
     const { store } = await ownerStore({ atoms: [typescript, three] });
     store.selectAtom(three.id);
@@ -230,7 +210,7 @@ describe("Atom writes outside Edit Mode", () => {
     const { repository, store } = await visitorStore();
 
     await expect(
-      store.addAtom({ label: "Sneaked in", description: "", hoursSpent: 1 }),
+      store.addAtom({ label: "Sneaked in", description: "" }),
     ).rejects.toThrow("Edit Mode");
 
     expect(store.getState().atoms).toEqual([typescript]);
@@ -244,7 +224,6 @@ describe("Atom writes outside Edit Mode", () => {
       store.editAtom(typescript.id, {
         label: "Tampered",
         description: "",
-        hoursSpent: 1,
       }),
     ).rejects.toThrow("Edit Mode");
 
@@ -266,7 +245,7 @@ describe("when an Atom write fails", () => {
     repository.failWith(new Error("network is down"));
 
     await expect(
-      store.addAtom({ label: "Three.js", description: "", hoursSpent: 120 }),
+      store.addAtom({ label: "Three.js", description: "" }),
     ).rejects.toThrow("network is down");
 
     const { status, atoms, error, writeError } = store.getState();
@@ -281,11 +260,11 @@ describe("when an Atom write fails", () => {
     const { repository, store } = await ownerStore();
     repository.failWith(new Error("network is down"));
     await expect(
-      store.addAtom({ label: "Three.js", description: "", hoursSpent: 120 }),
+      store.addAtom({ label: "Three.js", description: "" }),
     ).rejects.toThrow();
 
     repository.failWith(null);
-    await store.addAtom({ label: "Three.js", description: "", hoursSpent: 120 });
+    await store.addAtom({ label: "Three.js", description: "" });
 
     expect(store.getState().writeError).toBeNull();
     expect(store.getState().atoms).toHaveLength(2);
@@ -293,72 +272,43 @@ describe("when an Atom write fails", () => {
 });
 
 /**
- * Where the Owner is with an Atom — still learning it, or done — drives the
- * colour of the moons orbiting inside it, so it is data the Sphere reads rather
- * than a note on the side.
+ * An Atom is a label and a description, and nothing else the Owner did not
+ * type.
+ *
+ * Two fields have now been taken off it — `hoursSpent` (#30) and the Learning
+ * State — and both went for the same reason: a value nothing in the site checks
+ * is worse than no value, because it reads as a fact. This is what stops a
+ * third one arriving quietly. It is deliberately a shape assertion; the point is
+ * that the store adds nothing of its own on the way through.
  */
-describe("An Atom's learning state", () => {
-  it("starts out as still being learned when the Owner does not say", async () => {
+describe("What an Atom carries", () => {
+  it("carries the label and description the Owner supplied, and an id", async () => {
     const { store } = await ownerStore({ atoms: [] });
 
     await store.addAtom({
       label: "Rust",
       description: "Ownership, borrowing, and a lot of fighting.",
-      hoursSpent: 40,
     });
 
-    expect(store.getState().atoms[0].learningState).toBe("ongoing");
+    expect(Object.keys(store.getState().atoms[0]).sort()).toEqual([
+      "description",
+      "id",
+      "label",
+    ]);
   });
 
-  it("keeps the state the Owner chose, through a save and a reload", async () => {
-    const { store } = await ownerStore({ atoms: [] });
-
-    await store.addAtom({
-      label: "Latin",
-      description: "Enough to read an inscription.",
-      hoursSpent: 900,
-      learningState: "learned",
-    });
-
-    expect(store.getState().atoms[0].learningState).toBe("learned");
-
-    // Saved, not merely shown: it survives a round-trip through the repository.
-    await store.load();
-    expect(store.getState().atoms[0].learningState).toBe("learned");
-  });
-
-  it("leaves the state alone when an edit does not mention it", async () => {
-    const { store } = await ownerStore({ atoms: [] });
-    await store.addAtom({
-      label: "Latin",
-      description: "Enough to read an inscription.",
-      hoursSpent: 900,
-      learningState: "learned",
-    });
-    const latin = store.getState().atoms[0];
-
-    // Correcting the hours is not a claim about whether the Owner is done.
-    await store.editAtom(latin.id, {
-      label: latin.label,
-      description: latin.description,
-      hoursSpent: 950,
-    });
-
-    expect(store.getAtom(latin.id)?.learningState).toBe("learned");
-  });
-
-  it("moves an Atom from still-learning to learned, and back", async () => {
+  it("adds nothing of its own when the Owner edits one", async () => {
     const { store } = await ownerStore();
-    const draft = {
-      label: typescript.label,
-      description: typescript.description,
-      hoursSpent: typescript.hoursSpent,
-    };
 
-    await store.editAtom(typescript.id, { ...draft, learningState: "learned" });
-    expect(store.getAtom(typescript.id)?.learningState).toBe("learned");
+    await store.editAtom(typescript.id, {
+      label: "TypeScript",
+      description: "Types at the edges, inference in the middle.",
+    });
 
-    await store.editAtom(typescript.id, { ...draft, learningState: "ongoing" });
-    expect(store.getAtom(typescript.id)?.learningState).toBe("ongoing");
+    expect(Object.keys(store.getAtom(typescript.id)!).sort()).toEqual([
+      "description",
+      "id",
+      "label",
+    ]);
   });
 });

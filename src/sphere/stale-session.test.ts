@@ -12,8 +12,6 @@ const typescript: Atom = {
   id: "atom-typescript",
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
-  hoursSpent: 400,
-  learningState: "ongoing",
 };
 
 /**
@@ -43,10 +41,11 @@ describe("an Owner write that lands on a stale access token", () => {
     await store.editAtom(typescript.id, {
       label: "TypeScript",
       description: "Types at the edges.",
-      hoursSpent: 420,
     });
 
-    expect(store.getAtom(typescript.id)!.hoursSpent).toBe(420);
+    expect(store.getAtom(typescript.id)!.description).toBe(
+      "Types at the edges.",
+    );
     expect(store.getState().writeError).toBeNull();
     expect(auth.refreshCount).toBe(1);
   });
@@ -59,7 +58,6 @@ describe("an Owner write that lands on a stale access token", () => {
       store.editAtom(typescript.id, {
         label: "TypeScript",
         description: "Types at the edges.",
-        hoursSpent: 420,
       }),
     ).rejects.toThrow(SESSION_GONE);
 

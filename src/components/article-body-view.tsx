@@ -1,6 +1,8 @@
 import { Fragment, type ReactNode } from "react";
 
 import { imageInNode } from "@/articles/article-image";
+import { highlightCode } from "@/articles/code-highlight";
+import { toCodeLanguage } from "@/articles/code-languages";
 import type { ArticleBody, ArticleBodyNode } from "@/articles/domain";
 
 /**
@@ -56,11 +58,7 @@ function renderNode(node: ArticleBodyNode): ReactNode {
     case "listItem":
       return <li>{children(node.content)}</li>;
     case "codeBlock":
-      return (
-        <pre>
-          <code>{children(node.content)}</code>
-        </pre>
-      );
+      return <CodeBlock node={node} />;
     case "horizontalRule":
       return <hr />;
     case "image": {
@@ -78,6 +76,42 @@ function renderNode(node: ArticleBodyNode): ReactNode {
     default:
       return null;
   }
+}
+
+/**
+ * A code block, coloured for the language the Owner picked (#32).
+ *
+ * The colouring is built out of elements, never out of a string of markup — the
+ * same rule the rest of this file follows, and the reason `lowlight` is used
+ * rather than `highlight.js` directly. A block whose language is missing or
+ * unrecognised comes back as one uncoloured run, which is exactly how every
+ * block written before #32 renders.
+ *
+ * The class names are `highlight.js`'s, so this and the editor's own lowlight
+ * extension share one rule set in `globals.css` and cannot drift into different
+ * colours for the same token. The token *data* stays unprefixed; the prefix is
+ * put back here, where it is a CSS concern rather than part of the reading.
+ */
+function CodeBlock({ node }: { node: ArticleBodyNode }) {
+  const language = toCodeLanguage(node.attrs?.language);
+  // A code block holds text and nothing else — no marks, no nested blocks.
+  const code = (node.content ?? []).map((child) => child.text ?? "").join("");
+
+  return (
+    <pre data-language={language ?? undefined}>
+      <code>
+        {highlightCode(code, language).map((run, index) =>
+          run.token === null ? (
+            <Fragment key={index}>{run.text}</Fragment>
+          ) : (
+            <span key={index} className={`hljs-${run.token}`}>
+              {run.text}
+            </span>
+          ),
+        )}
+      </code>
+    </pre>
+  );
 }
 
 /**
