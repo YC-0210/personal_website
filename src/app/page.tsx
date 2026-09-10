@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { useSphereArticleCounts } from "@/articles/use-sphere-article-counts";
 import { AtomDetailPanel } from "@/components/atom-detail-panel";
 import { AtomEditor } from "@/components/atom-editor";
 import { ConnectionEditor } from "@/components/connection-editor";
@@ -90,6 +91,11 @@ function SceneNotice({ title, detail }: { title: string; detail: string | null }
 
 export default function Home() {
   const { status, atoms, error, isEditMode, selectedAtomId } = useSphere();
+
+  // An Atom's moons and its Rank both count the Articles written about it, and
+  // those live in the Article store (ADR-0007). This is what carries the count
+  // across (#30) — and what makes the Sphere page load the Articles at all.
+  useSphereArticleCounts();
 
   /**
    * Whether this browser can raise WebGL at all — unknown until after the first
@@ -182,12 +188,28 @@ export default function Home() {
             </button>
           )}
 
-          <Link
-            href="/articles"
-            className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 fixed top-4 right-4 z-20 rounded-md border px-3 py-1.5 text-sm font-medium max-md:top-auto max-md:bottom-32"
+          {/*
+            One row, not a pile of floating chips, and it moves to the phone's
+            slot as a single unit (#35, decision 15). The legend keeps
+            `top-16 right-4` — it is not pushed down by this.
+          */}
+          <nav
+            aria-label="Sections"
+            className="fixed top-4 right-4 z-20 flex items-center gap-2 max-md:top-auto max-md:bottom-32"
           >
-            Articles
-          </Link>
+            <Link
+              href="/projects"
+              className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 rounded-md border px-3 py-1.5 text-sm font-medium"
+            >
+              Projects
+            </Link>
+            <Link
+              href="/articles"
+              className="border-hairline bg-surface-1 text-ink hover:bg-surface-2 rounded-md border px-3 py-1.5 text-sm font-medium"
+            >
+              Articles
+            </Link>
+          </nav>
 
           {!showList && atoms.length > 0 && (
             <SphereLegend isDossierOpen={selectedAtomId !== null} />

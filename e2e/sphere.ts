@@ -6,9 +6,9 @@ import type { Locator, Page } from "@playwright/test";
  * uuids — nothing in the client cares, and they read better in a failure.
  */
 export const ATOMS = [
-  { id: "a1", label: "Classical physics", description: "Newton onwards.", hours_spent: 900 },
-  { id: "a2", label: "Economics", description: "Borrowed mechanics.", hours_spent: 500 },
-  { id: "a3", label: "Statistics", description: "The shared tool.", hours_spent: 300 },
+  { id: "a1", label: "Classical physics", description: "Newton onwards." },
+  { id: "a2", label: "Economics", description: "Borrowed mechanics." },
+  { id: "a3", label: "Statistics", description: "The shared tool." },
 ];
 
 export const CONNECTIONS = [
@@ -53,19 +53,112 @@ export const BONDINGS = [
   { id: "b2", article_id: "art2", atom_id: "a1", name: "What the draft owes this Atom" },
 ];
 
+/**
+ * A one-pixel PNG. Small enough to inline, real enough that the browser draws
+ * it rather than showing a broken image where an Image should be.
+ */
+export const ONE_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+/**
+ * Two Projects, and the pair is the point: one has a published day in it and
+ * one has nothing but a draft. The second is what a Visitor must not reach by
+ * any route — the list, the Project's own URL, or the Atom's Dossier.
+ */
+export const PROJECTS = [
+  {
+    id: "proj1",
+    name: "Knowledge Sphere",
+    description: "The interactive sphere on the homepage.",
+    deleted_at: null,
+  },
+  {
+    id: "proj2",
+    name: "Something unfinished",
+    description: "Started, nothing published.",
+    deleted_at: null,
+  },
+];
+
+export const DAYLOG_ENTRIES = [
+  {
+    id: "day1",
+    project_id: "proj1",
+    entry_date: "2026-08-20",
+    body: doc(
+      "Force-directed angles, rank-driven radius. Tried rank-driven angles first and the sphere read as a spiral, which said something true about the numbers and nothing true about the knowledge.",
+    ),
+    created_at: "2026-08-20T09:00:00Z",
+    published_at: "2026-08-20T18:00:00Z",
+  },
+  {
+    id: "day2",
+    project_id: "proj1",
+    entry_date: "2026-08-27",
+    body: doc("Half a thought, not finished."),
+    created_at: "2026-08-27T09:00:00Z",
+    published_at: null,
+  },
+  {
+    id: "day3",
+    project_id: "proj2",
+    entry_date: "2026-08-29",
+    body: doc("Nothing published in this one at all."),
+    created_at: "2026-08-29T09:00:00Z",
+    published_at: null,
+  },
+];
+
+export const PROJECT_BONDINGS = [
+  { id: "pb1", project_id: "proj1", atom_id: "a1", name: "Where the render loop got learned" },
+  // No Name, which an Article's Bonding could not be.
+  { id: "pb2", project_id: "proj2", atom_id: "a1", name: null },
+];
+
 /** Answer every Supabase read from the fixtures above. No project, no secrets. */
 export async function stubSupabase(page: Page): Promise<void> {
   await page.route("**/stub.supabase.co/**", (route) => {
     const url = route.request().url();
+
+    // Storage, both halves of it: the upload the Owner's picker triggers, and
+    // the fetch the browser makes for the picture once it is on the page.
+    if (url.includes("/storage/v1/object/public/")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        headers: { "access-control-allow-origin": "*" },
+        body: ONE_PIXEL_PNG,
+      });
+    }
+    if (url.includes("/storage/v1/object/")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "access-control-allow-origin": "*" },
+        body: JSON.stringify({ Key: "article-images/uploaded.png" }),
+      });
+    }
+
+    // Order matters: `project_bondings` contains `bondings`, and `projects`
+    // is a prefix of nothing else here only because the entries table is named
+    // `daylog_entries`. The more specific table is always tested first.
     const body = url.includes("/atoms")
       ? ATOMS
       : url.includes("/connections")
         ? CONNECTIONS
         : url.includes("/articles")
           ? ARTICLES
-          : url.includes("/bondings")
-            ? BONDINGS
-            : [];
+          : url.includes("/project_bondings")
+            ? PROJECT_BONDINGS
+            : url.includes("/daylog_entries")
+              ? DAYLOG_ENTRIES
+              : url.includes("/projects")
+                ? PROJECTS
+                : url.includes("/bondings")
+                  ? BONDINGS
+                  : [];
     route.fulfill({
       status: 200,
       contentType: "application/json",

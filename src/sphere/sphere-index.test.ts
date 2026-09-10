@@ -15,24 +15,18 @@ const typescript: Atom = {
   id: "atom-typescript",
   label: "TypeScript",
   description: "Types at the edges, inference in the middle.",
-  hoursSpent: 400,
-  learningState: "ongoing",
 };
 
 const threeJs: Atom = {
   id: "atom-three",
   label: "Three.js",
   description: "Scene graphs and shaders.",
-  hoursSpent: 120,
-  learningState: "ongoing",
 };
 
 const postgres: Atom = {
   id: "atom-postgres",
   label: "Postgres",
   description: "Relational modelling.",
-  hoursSpent: 200,
-  learningState: "ongoing",
 };
 
 const typescriptToThree: Connection = {
@@ -81,14 +75,27 @@ describe("sphereIndex", () => {
       expect(index).toHaveLength(3);
     });
 
-    it("orders Atoms by Rank, the most-invested first, as the scene weights them", () => {
+    it("orders Atoms by Rank, the most-written-about first, as the scene weights them", () => {
+      store.setArticleCounts({
+        [typescript.id]: 4,
+        [postgres.id]: 2,
+        [threeJs.id]: 1,
+      });
+
       const index = store.sphereIndex();
 
       expect(index.map((entry) => entry.atom.id)).toEqual([
-        typescript.id, // 400 hrs
-        postgres.id, // 200 hrs
-        threeJs.id, // 120 hrs
+        typescript.id, // 4 Articles
+        postgres.id, // 2 Articles
+        threeJs.id, // 1 Article
       ]);
+    });
+
+    it("sinks an Atom nothing has been written about below one that has", () => {
+      store.setArticleCounts({ [threeJs.id]: 1 });
+
+      // Absent from the counts, not zero in them.
+      expect(store.sphereIndex()[0].atom.id).toBe(threeJs.id);
     });
   });
 
@@ -97,15 +104,11 @@ describe("sphereIndex", () => {
       id: "atom-zig",
       label: "Zig",
       description: "Manual memory, no hidden control flow.",
-      hoursSpent: 150,
-      learningState: "ongoing",
     };
     const elixir: Atom = {
       id: "atom-elixir",
       label: "Elixir",
       description: "Processes all the way down.",
-      hoursSpent: 150,
-      learningState: "ongoing",
     };
     const store = createSphereStore(
       new FakeSphereRepository({ atoms: [zig, elixir], connections: [] }),
@@ -129,6 +132,7 @@ describe("sphereIndex", () => {
       }),
     );
     await store.load();
+    store.setArticleCounts({ [typescript.id]: 4, [postgres.id]: 2 });
     await store.signIn("owner@example.com", "hunter2");
     // The list view has already rendered once; the delete must show through it.
     expect(store.sphereIndex()).toHaveLength(3);

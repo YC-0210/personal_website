@@ -1,6 +1,5 @@
 import {
   connectionTouchesAtom,
-  DEFAULT_LEARNING_STATE,
   otherEndOfConnection,
   type Atom,
   type AtomDraft,
@@ -8,8 +7,6 @@ import {
   type Connection,
   type ConnectionDraft,
   type ConnectionId,
-  type LearningState,
-  type SettledAtomDraft,
 } from "./domain";
 import {
   UnconfiguredAuthProvider,
@@ -29,6 +26,15 @@ export interface SphereState {
   connections: Connection[];
   /** Derived Rank and position per Atom, recomputed whenever the data changes. */
   layout: Record<AtomId, AtomLayout>;
+  /**
+   * How many Articles have been written about each Atom — the count that Rank
+   * and an Atom's moons are both read off (issue #30).
+   *
+   * It is fed in rather than loaded: Bondings live in the Article store
+   * (ADR-0007), and the Sphere needs the number, not the Bondings. An Atom
+   * absent from here has had nothing written about it.
+   */
+  articleCounts: Record<AtomId, number>;
   selectedAtomId: AtomId | null;
   /** How each Atom and Connection should read, given the current selection. */
   emphasis: SphereEmphasis;
@@ -82,6 +88,7 @@ const EMPTY_STATE: SphereState = {
   atoms: [],
   connections: [],
   layout: {},
+  articleCounts: {},
   selectedAtomId: null,
   emphasis: { atoms: {}, connections: {} },
   error: null,
@@ -142,6 +149,20 @@ export class SphereStore {
         error: cause instanceof Error ? cause.message : String(cause),
       });
     }
+  }
+
+  /**
+   * Tell the Sphere how many Articles have been written about each Atom, and
+   * re-rank it on the answer.
+   *
+   * The Sphere does not read Bondings — they belong to the Article store
+   * (ADR-0007) — so this is the seam between the two, and the component layer
+   * is what joins them. Publishing an Article is a write on a different page,
+   * and this is how the Sphere follows it without being reloaded.
+   */
+  setArticleCounts(articleCounts: Record<AtomId, number>): void {
+    this.state = Object.freeze({ ...this.state, articleCounts });
+    this.applySphere(this.state.atoms, this.state.connections);
   }
 
   /**
@@ -257,9 +278,11 @@ export class SphereStore {
    * state the scene draws.
    */
   sphereIndex(): AtomDetail[] {
+    const writtenAbout = (atom: Atom) => this.state.articleCounts[atom.id] ?? 0;
     return [...this.state.atoms]
       .sort(
-        (a, b) => b.hoursSpent - a.hoursSpent || a.label.localeCompare(b.label),
+        (a, b) =>
+          writtenAbout(b) - writtenAbout(a) || a.label.localeCompare(b.label),
       )
       .map((atom) => this.detailOf(atom));
   }
@@ -270,20 +293,15 @@ export class SphereStore {
    */
   async addAtom(draft: AtomDraft): Promise<void> {
     await this.write(async () => {
-      const atom = await this.repository.createAtom(settleLearningState(draft));
+      const atom = await this.repository.createAtom(draft);
       this.applySphere([...this.state.atoms, atom], this.state.connections);
     });
   }
 
-  /** Rewrite an existing Atom. Rank and layout follow the new hours at once. */
+  /** Rewrite an existing Atom. Rank and layout follow at once. */
   async editAtom(atomId: AtomId, draft: AtomDraft): Promise<void> {
     await this.write(async () => {
-      const saved = await this.repository.updateAtom(
-        atomId,
-        // An edit that says nothing about the learning state is not a claim
-        // that the Owner has stopped being done with it.
-        settleLearningState(draft, this.getAtom(atomId)?.learningState),
-      );
+      const saved = await this.repository.updateAtom(atomId, draft);
       this.applySphere(
         this.state.atoms.map((atom) => (atom.id === atomId ? saved : atom)),
         this.state.connections,
@@ -513,7 +531,11 @@ export class SphereStore {
     this.setState({
       atoms,
       connections,
-      layout: layoutSphere(atoms, connections, rankAtoms(atoms)),
+      layout: layoutSphere(
+        atoms,
+        connections,
+        rankAtoms(atoms, this.state.articleCounts),
+      ),
       selectedAtomId,
       emphasis: deriveEmphasis(atoms, connections, selectedAtomId),
       ...patch,
@@ -524,23 +546,6 @@ export class SphereStore {
     this.state = Object.freeze({ ...this.state, ...patch });
     for (const listener of this.listeners) listener(this.state);
   }
-}
-
-/**
- * Fill in the learning state a draft left out, before anything is written.
- *
- * Done here rather than in the form or the repository so every write path
- * agrees: an Atom that reaches the store of record always says where the Owner
- * is with it, and no caller can create one that does not.
- */
-function settleLearningState(
-  draft: AtomDraft,
-  current?: LearningState,
-): SettledAtomDraft {
-  return {
-    ...draft,
-    learningState: draft.learningState ?? current ?? DEFAULT_LEARNING_STATE,
-  };
 }
 
 /**

@@ -19,6 +19,9 @@ export class FakeAuthProvider implements AuthProvider {
   >();
 
   signInAttempts = 0;
+  /** How many times a stale token has been traded in for a fresh one. */
+  refreshCount = 0;
+  private refreshEffect: (() => void) | null = null;
 
   constructor(private readonly options: FakeAuthProviderOptions) {
     this.session = options.signedIn ? { email: options.owner.email } : null;
@@ -40,6 +43,22 @@ export class FakeAuthProvider implements AuthProvider {
 
     this.session = { email: owner.email };
     return this.session;
+  }
+
+  async refreshSession(): Promise<OwnerSession | null> {
+    this.refreshCount += 1;
+    if (this.failure) throw this.failure;
+    this.refreshEffect?.();
+    return this.session;
+  }
+
+  /**
+   * What a successful refresh changes in the world — normally that the
+   * repository stops refusing calls, because the token it was refusing is no
+   * longer the one being sent.
+   */
+  onRefresh(effect: () => void): void {
+    this.refreshEffect = effect;
   }
 
   async signOut(): Promise<void> {

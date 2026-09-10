@@ -112,6 +112,90 @@ body {
   font-size: 14px; line-height: 1.55;
 }
 .article-prose pre code { background: none; padding: 0; }
+.article-prose img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px; margin-top: 1.6em; margin-bottom: 1.6em;
+}
+/* The one the caret is on, so the Owner can see what they are about to move. */
+.article-prose img.ProseMirror-selectednode { outline: 2px solid var(--color-primary); }
+/*
+ * Syntax colour for a code block (#32).
+ *
+ * Derived entirely from tokens DESIGN.md already defines, which is what puts
+ * this inside ADR-0004's exemption for a look the design system already
+ * settles — no palette was invented and no prototype round was run.
+ *
+ * Two tokens were measured and refused. Code sets at 14px, which is normal text
+ * under WCAG, so it needs 4.5:1 against the block's `surface-1` (#0f1011):
+ *
+ *   ink            17.90:1   names
+ *   ink-muted      13.04:1   the body of the code
+ *   primary-hover   6.64:1   keywords
+ *   ink-subtle      5.86:1   comments, numbers
+ *   brand-secure    4.96:1   strings
+ *   ink-tertiary    3.30:1   REFUSED — fails AA
+ *   primary         4.05:1   REFUSED — fails AA
+ *
+ * That leaves five colours for six things to say, so comments are separated
+ * from numbers by *italic* rather than by a sixth colour. A style carries the
+ * distinction where a colour could not be afforded honestly.
+ *
+ * `semantic-success` is deliberately absent: DESIGN.md gives green one meaning
+ * on this site — done — and a string is not done.
+ *
+ * The class names are `highlight.js`'s own, and that is deliberate: the editor
+ * colours through Tiptap's lowlight extension and the reader colours through
+ * `code-highlight.ts`, so sharing one vocabulary means one rule set serves both
+ * and the two cannot drift into different colours for the same token. The
+ * editor's surface carries `.article-prose` too, which is what scopes this.
+ */
+
+/* Names: what the eye scans a block for. */
+.article-prose .hljs-title,
+.article-prose .hljs-name,
+.article-prose .hljs-section,
+.article-prose .hljs-variable { color: var(--color-ink); }
+
+/*
+ * Structure: what the language itself contributes rather than the author.
+ *
+ * `tag` is here rather than with the names above, and that is the difference
+ * between HTML reading as marked up and reading as flat. `highlight.js` nests
+ * the element name *inside* the tag, so the tag's own text is just the angle
+ * brackets — colouring those as structure and the name as a name gives an HTML
+ * block three colours where sharing one token gave it two.
+ */
+.article-prose .hljs-keyword,
+.article-prose .hljs-type,
+.article-prose .hljs-meta,
+.article-prose .hljs-operator,
+.article-prose .hljs-tag,
+.article-prose .hljs-bullet { color: var(--color-primary-hover); }
+
+/* Literal values the author wrote out. */
+.article-prose .hljs-string,
+.article-prose .hljs-regexp,
+.article-prose .hljs-link,
+.article-prose .hljs-code,
+.article-prose .hljs-symbol,
+.article-prose .hljs-attr { color: var(--color-brand-secure); }
+
+/* Quantities and the language's own constants. */
+.article-prose .hljs-number,
+.article-prose .hljs-literal,
+.article-prose .hljs-built_in { color: var(--color-ink-subtle); }
+
+/* Prose inside code. Italic is what separates these from the numbers above. */
+.article-prose .hljs-comment,
+.article-prose .hljs-quote {
+  color: var(--color-ink-subtle); font-style: italic;
+}
+
+/* Markdown says these two with weight and slant, so the block should too. */
+.article-prose .hljs-strong { color: var(--color-ink); font-weight: 600; }
+.article-prose .hljs-emphasis { font-style: italic; }
+
 .article-prose hr { border: 0; border-top: 1px solid var(--color-hairline); margin: 2em 0; }
 
 /* Tiptap's placeholder, shown on the empty line the caret is sitting on. */

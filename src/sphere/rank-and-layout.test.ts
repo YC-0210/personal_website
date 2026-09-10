@@ -1,22 +1,34 @@
 import { describe, expect, it } from "vitest";
 
-import type { Atom } from "./domain";
+import type { Atom, AtomId } from "./domain";
 import { FakeSphereRepository } from "./fake-repository";
 import { createSphereStore } from "./store";
 
-function atom(id: string, hoursSpent: number): Atom {
-  return { id, label: id, description: "", hoursSpent, learningState: "ongoing" };
+function atom(id: string): Atom {
+  return { id, label: id, description: "" };
 }
 
-async function sphereOf(atoms: Atom[]) {
+/**
+ * A Sphere, plus how many Articles have been written about each of its Atoms.
+ * The counts come from the Article store in the running site (ADR-0007); here
+ * they are handed straight in, which is the whole point of the seam.
+ */
+async function sphereOf(
+  atoms: Atom[],
+  articleCounts: Record<AtomId, number> = {},
+) {
   const store = createSphereStore(new FakeSphereRepository({ atoms }));
   await store.load();
+  store.setArticleCounts(articleCounts);
   return store;
 }
 
 describe("Rank", () => {
-  it("gives an Atom with more time spent a larger size", async () => {
-    const store = await sphereOf([atom("deep", 400), atom("shallow", 10)]);
+  it("gives an Atom more has been written about a larger size", async () => {
+    const store = await sphereOf([atom("deep"), atom("shallow")], {
+      deep: 6,
+      shallow: 1,
+    });
 
     const { layout } = store.getState();
 
@@ -24,36 +36,74 @@ describe("Rank", () => {
   });
 
   it("pulls a higher-ranked Atom closer to the centre", async () => {
-    const store = await sphereOf([atom("deep", 400), atom("shallow", 10)]);
+    const store = await sphereOf([atom("deep"), atom("shallow")], {
+      deep: 6,
+      shallow: 1,
+    });
 
     const { layout } = store.getState();
 
     expect(layout.deep.orbitRadius).toBeLessThan(layout.shallow.orbitRadius);
   });
 
-  /**
-   * The bug issue #24 is about: one towering Atom used to flatten everything
-   * else against it. Under the old `hours / mostHours` lerp, 100 hours and 1000
-   * hours next to a 10,000-hour Atom both landed within a rounding error of the
-   * smallest size and the outer shell — an order of magnitude of the Owner's
-   * time, rendered as no difference at all.
-   */
-  it("keeps an order of magnitude readable even beside a towering Atom", async () => {
-    const store = await sphereOf([
-      atom("towering", 10_000),
-      atom("deep", 1000),
-      atom("modest", 100),
-    ]);
+  it("ranks an Atom nothing has been written about at the bottom", async () => {
+    const store = await sphereOf([atom("written"), atom("silent")], {
+      written: 2,
+    });
 
     const { layout } = store.getState();
 
-    // The size range is 0.055 wide and the orbit range 0.45. A tenfold
-    // difference in hours has to buy a visible slice of each; the linear lerp
-    // gave these two 0.005 of size and 0.04 of orbit, which reads as identical.
+    // Absent from the counts, not zero in them — the Sphere reads a missing
+    // count as none rather than asking the Article store about every Atom.
+    expect(layout.silent.rank).toBe(0);
+    expect(layout.written.rank).toBeGreaterThan(0);
+  });
+
+  it("reads a Sphere nobody has written about yet as flat", async () => {
+    // The honest rendering of "nothing is written yet". No floor is invented
+    // to avoid it (decision 6 on #30).
+    const store = await sphereOf([atom("a"), atom("b"), atom("c")]);
+
+    const { layout } = store.getState();
+
+    for (const id of ["a", "b", "c"]) {
+      expect(layout[id].rank).toBe(0);
+    }
+  });
+
+  /**
+   * The bug issue #24 is about: one towering Atom used to flatten everything
+   * else against it. Under a straight `count / mostCount` lerp, everything
+   * below the top Atom compresses against the smallest size and the outer
+   * shell — a real difference in how much has been written, rendered as none.
+   * The log curve was chosen to stop that, and #30 changed only its input.
+   */
+  it("keeps a real difference readable even beside a towering Atom", async () => {
+    const store = await sphereOf(
+      [atom("towering"), atom("deep"), atom("modest")],
+      { towering: 40, deep: 8, modest: 2 },
+    );
+
+    const { layout } = store.getState();
+
+    // The size range is 0.055 wide and the orbit range 0.45. A fourfold
+    // difference has to buy a visible slice of each; a linear lerp gives these
+    // two 0.008 of size and 0.07 of orbit, which reads as identical.
     expect(layout.deep.size - layout.modest.size).toBeGreaterThan(0.01);
     expect(layout.modest.orbitRadius - layout.deep.orbitRadius).toBeGreaterThan(
       0.08,
     );
+  });
+
+  it("re-ranks the Sphere when the writing changes underneath it", async () => {
+    // Publishing an Article is a write on a different page; the Sphere has to
+    // follow it without being reloaded.
+    const store = await sphereOf([atom("a"), atom("b")], { a: 1, b: 4 });
+    const before = store.getState().layout.a.size;
+
+    store.setArticleCounts({ a: 9, b: 4 });
+
+    expect(store.getState().layout.a.size).toBeGreaterThan(before);
   });
 });
 
@@ -73,9 +123,9 @@ function angleBetween(a: Vec3, b: Vec3): number {
 describe("Layout", () => {
   it("places every Atom on its own orbit radius", async () => {
     const store = await sphereOf([
-      atom("a", 400),
-      atom("b", 200),
-      atom("c", 10),
+      atom("a"),
+      atom("b"),
+      atom("c"),
     ]);
 
     const { layout } = store.getState();
@@ -88,7 +138,7 @@ describe("Layout", () => {
     }
   });
 
-  const sixAtoms = ["a", "b", "c", "d", "e", "f"].map((id) => atom(id, 100));
+  const sixAtoms = ["a", "b", "c", "d", "e", "f"].map((id) => atom(id));
 
   function connect(strength: number) {
     return [
@@ -147,7 +197,7 @@ describe("Layout", () => {
 
   it("spreads Atoms apart when there are no Connections at all", async () => {
     const store = await sphereOf(
-      ["a", "b", "c", "d", "e", "f"].map((id) => atom(id, 100)),
+      ["a", "b", "c", "d", "e", "f"].map((id) => atom(id)),
     );
 
     const { layout } = store.getState();
@@ -162,24 +212,28 @@ describe("Layout", () => {
   });
 
   it("lays the same data out the same way every time", async () => {
-    const atoms = ["a", "b", "c", "d", "e"].map((id, i) => atom(id, 100 * i));
+    const ids = ["a", "b", "c", "d", "e"];
+    const atoms = ids.map((id) => atom(id));
+    // Distinct Ranks, so a stable layout is a real result rather than five
+    // identical Atoms landing anywhere and matching by symmetry.
+    const written = Object.fromEntries(ids.map((id, i) => [id, i + 1]));
 
-    const first = await sphereOf(atoms);
-    const second = await sphereOf([...atoms].reverse());
+    const first = await sphereOf(atoms, written);
+    const second = await sphereOf([...atoms].reverse(), written);
 
     expect(second.getState().layout).toEqual(first.getState().layout);
   });
 
   it("re-lays the Sphere out when the data changes", async () => {
     const repository = new FakeSphereRepository({
-      atoms: [atom("a", 100), atom("b", 100)],
+      atoms: [atom("a"), atom("b")],
     });
     const store = createSphereStore(repository);
     await store.load();
     const before = store.getState().layout.a.position;
 
     repository.setSnapshot({
-      atoms: [atom("a", 100), atom("b", 100), atom("c", 100)],
+      atoms: [atom("a"), atom("b"), atom("c")],
       connections: [],
     });
     await store.load();

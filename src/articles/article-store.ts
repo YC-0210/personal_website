@@ -4,6 +4,12 @@ import {
   type OwnerSession,
 } from "@/sphere/auth";
 import { EMPTY_BODY } from "./article-body";
+import { refusalFor } from "./article-image";
+import {
+  UnconfiguredImageStore,
+  type ArticleImage,
+  type ImageStore,
+} from "./image-store";
 import type {
   Article,
   ArticleDraft,
@@ -65,6 +71,7 @@ export class ArticleStore {
   constructor(
     private readonly repository: ArticleRepository,
     private readonly auth: AuthProvider = new UnconfiguredAuthProvider(),
+    private readonly images: ImageStore = new UnconfiguredImageStore(),
   ) {}
 
   getState(): ArticleState {
@@ -147,6 +154,28 @@ export class ArticleStore {
       const saved = await this.repository.updateArticle(articleId, draft);
       this.replace(saved);
     });
+  }
+
+  /**
+   * Put an Image in an Article and say where to point at it.
+   *
+   * The document is not touched here — the editor holds the body and is the
+   * one that can put a picture at the caret, so this returns the URL and lets
+   * it. Autosave writes the result out like any other edit.
+   *
+   * The file is judged before it is sent, so an Owner who picks the wrong
+   * thing is told immediately rather than after waiting for an upload the
+   * bucket was always going to refuse.
+   */
+  async uploadImage(articleId: ArticleId, file: File): Promise<ArticleImage> {
+    let image: ArticleImage | null = null;
+    await this.write(async () => {
+      const refusal = refusalFor(file);
+      if (refusal) throw new Error(refusal);
+
+      image = await this.images.upload(articleId, file);
+    });
+    return image!;
   }
 
   /** Publish a draft. The one deliberate act that makes writing public. */
@@ -312,6 +341,34 @@ export class ArticleStore {
   }
 
   /**
+   * How many Articles have been written about each Atom: the count the Sphere
+   * reads for an Atom's moons and for its Rank (issue #30).
+   *
+   * Live, published, bonded — and deliberately *not* the rule `bondedArticles()`
+   * uses. That one answers "what may this reader open", so it includes the
+   * Owner's own drafts. This one answers "what has been written about this
+   * Atom", and has to give everybody the same answer: moons and Rank both hang
+   * off it, so a reader-dependent count would resize Atoms and move orbits the
+   * moment the Owner signed in, leaving them tuning a Sphere no Visitor sees.
+   *
+   * Atoms with nothing written about them are absent rather than zero. The
+   * Sphere reads a missing count as none, and listing every Atom here would
+   * mean this store knowing what Atoms exist, which is the Sphere's to know.
+   */
+  publishedBondedCounts(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const bonding of this.state.bondings) {
+      const article = this.state.articles.find(
+        (candidate) => candidate.id === bonding.articleId,
+      );
+      if (!article) continue;
+      if (article.deletedAt !== null || article.publishedAt === null) continue;
+      counts[bonding.atomId] = (counts[bonding.atomId] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /**
    * Pick up a session the Owner already had, and keep following it if it goes
    * away on its own. Returns the unsubscribe for the session listener.
    */
@@ -391,6 +448,7 @@ function requireBondingName(name: string): void {
 export function createArticleStore(
   repository: ArticleRepository,
   auth?: AuthProvider,
+  images?: ImageStore,
 ): ArticleStore {
-  return new ArticleStore(repository, auth);
+  return new ArticleStore(repository, auth, images);
 }

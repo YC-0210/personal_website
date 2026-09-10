@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+import { publishedOn } from "@/articles/published-date";
 import { getArticleStore, useArticles } from "@/articles/use-articles";
 import { ArticleBodyView } from "@/components/article-body-view";
 import { DraftBadge } from "@/components/draft-badge";
@@ -64,6 +65,22 @@ export default function ArticlePage() {
           <h1 className="text-ink text-[28px] leading-[1.15] font-semibold tracking-[-0.6px] text-balance">
             {article.title}
           </h1>
+
+          {/*
+            When this was last published (#31). A draft renders nothing here —
+            not a dash, not its creation date — because it has no publish to
+            date, and the Draft badge below is already the whole statement.
+
+            The formatted day is not parseable, so the ISO stamp rides along in
+            `dateTime` where a machine can still read it.
+          */}
+          {article.publishedAt !== null && (
+            <p className="text-ink-tertiary mt-3 text-xs">
+              <time dateTime={article.publishedAt}>
+                {publishedOn(article.publishedAt)}
+              </time>
+            </p>
+          )}
 
           {/* Only the Owner can be here to see this: a draft is refused to a
               Visitor by RLS long before the page renders. */}

@@ -2,18 +2,30 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
+import { recoverStaleSession } from "@/lib/session-recovery";
 import { createSphereStore, type SphereState, type SphereStore } from "./store";
 import { SupabaseAuthProvider } from "./supabase-auth-provider";
 import { SupabaseSphereRepository } from "./supabase-repository";
 
 let store: SphereStore | null = null;
 
-/** The one Sphere store the page shares, created lazily in the browser. */
+/**
+ * The one Sphere store the page shares, created lazily in the browser.
+ *
+ * The repository is wrapped so that a request refused because the access token
+ * had expired refreshes the token and goes again, instead of surfacing as an
+ * error only a reload clears. See `@/lib/session-recovery`.
+ */
 export function getSphereStore(): SphereStore {
-  store ??= createSphereStore(
-    new SupabaseSphereRepository(),
-    new SupabaseAuthProvider(),
-  );
+  if (!store) {
+    const auth = new SupabaseAuthProvider();
+    store = createSphereStore(
+      recoverStaleSession(new SupabaseSphereRepository(), () =>
+        auth.refreshSession(),
+      ),
+      auth,
+    );
+  }
   return store;
 }
 
@@ -22,6 +34,7 @@ const SERVER_SNAPSHOT: SphereState = {
   atoms: [],
   connections: [],
   layout: {},
+  articleCounts: {},
   selectedAtomId: null,
   emphasis: { atoms: {}, connections: {} },
   error: null,

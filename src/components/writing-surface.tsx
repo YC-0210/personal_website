@@ -14,6 +14,8 @@
  * - Toolbar: parked at the top of the writing column and always visible. It
  *   never floats to the selection.
  * - Insert: on a keystroke — `/` on an empty line. No gutter affordance.
+ * - Images: dropped, pasted, or picked from the toolbar. All three land in the
+ *   same place, because all three are the same gesture — "this picture, here".
  * - Column: 720-ish, left-aligned under the toolbar; the rail takes the right.
  * - State: spelled out in sentences in the rail, not compressed to a chip.
  */
@@ -53,6 +55,9 @@ const BLOCKS = [
   { label: "Code block", hint: "‹›", run: (e: Editor) => e.chain().focus().toggleCodeBlock().run() },
   { label: "Divider", hint: "—", run: (e: Editor) => e.chain().focus().setHorizontalRule().run() },
 ] as const;
+
+/** Picked from the slash menu, this opens the file picker rather than running. */
+const IMAGE_BLOCK = { label: "Image", hint: "▣" } as const;
 
 function MarkButton({ editor, mark }: { editor: Editor; mark: (typeof MARKS)[number] }) {
   const active = editor.isActive(mark.is);
@@ -126,10 +131,12 @@ function BlockMenu({
   editor,
   onDone,
   at,
+  onPickImage,
 }: {
   editor: Editor;
   onDone: () => void;
   at: { top: number; left: number };
+  onPickImage: () => void;
 }) {
   return (
     <div
@@ -154,35 +161,123 @@ function BlockMenu({
           <span className="text-ink-tertiary text-xs">{block.hint}</span>
         </button>
       ))}
+
+      {/* Not a block that can be `run`: it has to go and get a file first. */}
+      <button
+        type="button"
+        role="menuitem"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          onDone();
+          onPickImage();
+        }}
+        className="text-ink-muted hover:bg-surface-4 hover:text-ink flex items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm"
+      >
+        {IMAGE_BLOCK.label}
+        <span className="text-ink-tertiary text-xs">{IMAGE_BLOCK.hint}</span>
+      </button>
     </div>
+  );
+}
+
+
+/**
+ * Putting a picture where the caret is, whichever way it was offered.
+ *
+ * Picking from the toolbar, dropping onto the column and pasting from the
+ * clipboard are one gesture said three ways, so they share one path: upload,
+ * then set an image node at the caret. The upload has to finish first — a node
+ * pointing at a blob URL would be a picture that vanishes on reload.
+ *
+ * The caller holds the result in a ref: Tiptap captures `editorProps` when the
+ * editor is created, so drop and paste have to reach the *current* insert
+ * rather than the one that existed at that moment.
+ */
+function useImageInsertion(
+  editor: Editor | null,
+  uploadImage: (file: File) => Promise<{ url: string }>,
+) {
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pending, setPending] = useState(0);
+
+  const insert = useCallback(
+    async (files: File[]) => {
+      if (!editor || files.length === 0) return;
+      setNotice(null);
+
+      for (const file of files) {
+        setPending((count) => count + 1);
+        try {
+          const { url } = await uploadImage(file);
+          // `alt` starts empty and the Owner fills it from the toolbar. Empty
+          // is the honest default: it is correct for a decorative picture, and
+          // it keeps a screen reader from reading the URL out instead.
+          editor.chain().focus().setImage({ src: url, alt: "" }).run();
+        } catch (cause) {
+          setNotice(cause instanceof Error ? cause.message : String(cause));
+        } finally {
+          setPending((count) => count - 1);
+        }
+      }
+    },
+    [editor, uploadImage],
+  );
+
+  return { insert, notice, setNotice, pending };
+}
+
+/** The image files out of a drop or a paste, ignoring everything else in it. */
+function imageFilesIn(transfer: DataTransfer | null): File[] {
+  return Array.from(transfer?.files ?? []).filter((file) =>
+    file.type.startsWith("image/"),
   );
 }
 
 /* ------------------------------------------------------------------- surface */
 
-export interface WritingSurfaceProps {
-  title: string;
+interface WritingSurfaceBase {
   body: ArticleBody;
-  onTitleChange: (title: string) => void;
   onBodyChange: (body: ArticleBody) => void;
   /** Filled by the page: the rail's contents, which the surface does not own. */
   rail: React.ReactNode;
-  /** Where "back" goes. Always the Article itself — decision 11, no exceptions. */
+  /** Where "back" goes. One destination from either entry point — decision 11. */
   back: React.ReactNode;
+  /**
+   * Put a picture in the bucket and say where it ended up. Filled by the page,
+   * because the document an Image belongs to is the page's business — the
+   * surface only knows where the caret is.
+   *
+   * Required: every surface that opens for writing has somewhere to put a
+   * picture — an Article into its bucket, a day into the Daylog's. It was
+   * briefly optional, while the Daylog had nowhere to put one; keeping the
+   * option now would be a branch no caller takes.
+   */
+  uploadImage: (file: File) => Promise<{ url: string }>;
 }
 
-export function WritingSurface({
-  title,
-  body,
-  onTitleChange,
-  onBodyChange,
-  rail,
-  back,
-}: WritingSurfaceProps) {
+/**
+ * What stands above the rule: an Article's title, or whatever else names the
+ * document.
+ *
+ * A Daylog Entry has no title — the date is its heading (#35, decision 11) — so
+ * the slot is a node the caller fills rather than a field this owns. Expressed
+ * as a union so a caller cannot pass both and leave it ambiguous which one the
+ * document is actually named by.
+ */
+export type WritingSurfaceProps =
+  | (WritingSurfaceBase & { title: string; onTitleChange: (title: string) => void })
+  | (WritingSurfaceBase & { heading: React.ReactNode });
+
+export function WritingSurface(props: WritingSurfaceProps) {
+  const { body, onBodyChange, rail, back, uploadImage } = props;
   // The body is only ever pushed *into* the editor once. After that the editor
   // is the source of truth for it; re-setting content on every keystroke would
   // fight the caret.
   const seeded = useRef(false);
+
+  // Declared before the editor so `editorProps`, which Tiptap captures once at
+  // creation, can reach the insert that is current when a drop actually lands.
+  const insertImages = useRef<((files: File[]) => void) | null>(null);
 
   const editor = useEditor({
     extensions: ARTICLE_EXTENSIONS,
@@ -191,6 +286,21 @@ export function WritingSurface({
     immediatelyRender: false,
     editorProps: {
       attributes: { class: "article-prose focus:outline-none" },
+      handleDrop: (_view, event) => {
+        const files = imageFilesIn((event as DragEvent).dataTransfer);
+        if (files.length === 0) return false;
+        // Handled here, so ProseMirror does not also try to make sense of it.
+        event.preventDefault();
+        insertImages.current?.(files);
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        const files = imageFilesIn(event.clipboardData);
+        if (files.length === 0) return false;
+        event.preventDefault();
+        insertImages.current?.(files);
+        return true;
+      },
     },
     onUpdate: ({ editor: current }) => {
       onBodyChange(current.getJSON() as ArticleBody);
@@ -204,6 +314,12 @@ export function WritingSurface({
   }, [editor, body]);
 
   const { at, close } = useSlashMenu(editor);
+  const insertion = useImageInsertion(editor, uploadImage);
+  const picker = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    insertImages.current = (files) => void insertion.insert(files);
+  }, [insertion]);
 
   if (!editor) return null;
 
@@ -218,35 +334,120 @@ export function WritingSurface({
             {MARKS.map((mark) => (
               <MarkButton key={mark.title} editor={editor} mark={mark} />
             ))}
+
+            <span className="bg-hairline mx-1 h-5 w-px" />
+
+            <button
+              type="button"
+              title="Image"
+              aria-label="Image"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => picker.current?.click()}
+              className="text-ink-muted hover:bg-surface-3 hover:text-ink grid h-8 min-w-8 place-items-center rounded-md px-2 text-sm font-medium"
+            >
+              ▣
+            </button>
+
+            {/*
+              Alt text is a property of the picture the caret is on, so the
+              control only exists while there is one. `window.prompt` is the
+              same plain thing the Link control uses.
+            */}
+            {editor.isActive("image") && (
+              <button
+                type="button"
+                title="Alt text"
+                aria-label="Alt text"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  const current = editor.getAttributes("image").alt ?? "";
+                  const alt = window.prompt("Describe this picture", current);
+                  if (alt !== null) {
+                    editor.chain().focus().updateAttributes("image", { alt }).run();
+                  }
+                }}
+                className="text-ink-muted hover:bg-surface-3 hover:text-ink grid h-8 place-items-center rounded-md px-2 text-[13px] font-medium"
+              >
+                ALT
+              </button>
+            )}
+
+            <input
+              ref={picker}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+              multiple
+              hidden
+              onChange={(event) => {
+                void insertion.insert(Array.from(event.target.files ?? []));
+                // Cleared so picking the same file twice fires again.
+                event.target.value = "";
+              }}
+            />
+
+            {insertion.pending > 0 && (
+              <span className="text-ink-tertiary ml-2 text-xs">
+                Uploading{insertion.pending > 1 ? ` ${insertion.pending}` : ""}…
+              </span>
+            )}
           </div>
+
+          {insertion.notice && (
+            <div className="mx-auto max-w-[820px] px-8 pb-2">
+              <p role="alert" className="text-semantic-danger text-xs">
+                {insertion.notice}{" "}
+                <button
+                  type="button"
+                  onClick={() => insertion.setNotice(null)}
+                  className="text-ink-tertiary hover:text-ink underline"
+                >
+                  Dismiss
+                </button>
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="mx-auto max-w-[820px] px-8 pt-10 pb-40">
-          <label
-            htmlFor="article-title"
-            className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]"
-          >
-            TITLE
-          </label>
-          <input
-            id="article-title"
-            value={title}
-            onChange={(event) => onTitleChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              editor.commands.focus("start");
-            }}
-            placeholder="Untitled"
-            className="text-ink placeholder:text-ink-tertiary mt-1.5 w-full bg-transparent text-[26px] leading-[1.25] font-medium tracking-[-0.5px] focus:outline-none"
-          />
+          {"heading" in props ? (
+            props.heading
+          ) : (
+            <>
+              <label
+                htmlFor="article-title"
+                className="text-ink-tertiary text-[13px] font-medium tracking-[0.4px]"
+              >
+                TITLE
+              </label>
+              <input
+                id="article-title"
+                value={props.title}
+                onChange={(event) => props.onTitleChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  editor.commands.focus("start");
+                }}
+                placeholder="Untitled"
+                className="text-ink placeholder:text-ink-tertiary mt-1.5 w-full bg-transparent text-[26px] leading-[1.25] font-medium tracking-[-0.5px] focus:outline-none"
+              />
+            </>
+          )}
 
-          {/* The rule is the point: the title and the body are two things. */}
+          {/* The rule is the point: what names the document and the document
+              itself are two things. */}
           <hr className="border-hairline mt-5 mb-8" />
 
           <div className="relative">
             <EditorContent editor={editor} />
-            {at && <BlockMenu editor={editor} onDone={close} at={at} />}
+            {at && (
+              <BlockMenu
+                editor={editor}
+                onDone={close}
+                at={at}
+                onPickImage={() => picker.current?.click()}
+              />
+            )}
           </div>
         </div>
       </div>

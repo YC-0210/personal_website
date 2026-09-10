@@ -33,7 +33,8 @@ export function SphereListView() {
         </h2>
         <p className="text-ink-subtle mt-2 text-sm leading-relaxed">
           The same knowledge the Sphere shows, as a list. Atoms are ordered by
-          time invested; each Connection links to the Atom at its far end.
+          how much has been written about them; each Connection links to the
+          Atom at its far end.
         </p>
 
         {status === "error" && (
@@ -56,14 +57,9 @@ export function SphereListView() {
               // the viewport edge, and target styling marks the arrival.
               className="border-hairline target:border-primary scroll-mt-6 border-t py-6 target:border-t-2"
             >
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-ink text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
-                  {atom.label}
-                </h3>
-                <p className="bg-surface-2 text-ink-muted rounded-full px-2 py-0.5 text-xs whitespace-nowrap">
-                  {atom.hoursSpent.toLocaleString()} hrs
-                </p>
-              </div>
+              <h3 className="text-ink text-[22px] leading-[1.25] font-medium tracking-[-0.4px]">
+                {atom.label}
+              </h3>
               <p className="text-ink-muted mt-2 text-sm leading-relaxed">
                 {atom.description}
               </p>

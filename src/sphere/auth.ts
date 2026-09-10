@@ -15,6 +15,14 @@ export interface AuthProvider {
   currentSession(): Promise<OwnerSession | null>;
   signIn(email: string, password: string): Promise<OwnerSession>;
   signOut(): Promise<void>;
+  /**
+   * Trade the refresh token for a new access token, now.
+   *
+   * The client refreshes on its own schedule, but that schedule stops while
+   * the tab is asleep — so this is the deliberate ask, made when a request has
+   * already come back refused because the token it carried had expired.
+   */
+  refreshSession(): Promise<OwnerSession | null>;
   /** Fires when a session appears or disappears outside of sign-in/sign-out. */
   onSessionChange(listener: (session: OwnerSession | null) => void): () => void;
 }
@@ -33,6 +41,10 @@ export class UnconfiguredAuthProvider implements AuthProvider {
   }
 
   async signOut(): Promise<void> {}
+
+  async refreshSession(): Promise<OwnerSession | null> {
+    return null;
+  }
 
   onSessionChange(): () => void {
     return () => {};

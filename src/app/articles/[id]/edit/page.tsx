@@ -216,6 +216,7 @@ function Workspace({ article }: { article: Article }) {
             setBody(next);
             queueSave({ title, body: next });
           }}
+          uploadImage={(file) => store.uploadImage(article.id, file)}
           back={<Back id={article.id} />}
           rail={
             <>
