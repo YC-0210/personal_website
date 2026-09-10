@@ -136,8 +136,7 @@ function BlockMenu({
   editor: Editor;
   onDone: () => void;
   at: { top: number; left: number };
-  /** Null when this surface has no uploader — the entry is left out entirely. */
-  onPickImage: (() => void) | null;
+  onPickImage: () => void;
 }) {
   return (
     <div
@@ -164,21 +163,19 @@ function BlockMenu({
       ))}
 
       {/* Not a block that can be `run`: it has to go and get a file first. */}
-      {onPickImage && (
-        <button
-          type="button"
-          role="menuitem"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            onDone();
-            onPickImage();
-          }}
-          className="text-ink-muted hover:bg-surface-4 hover:text-ink flex items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm"
-        >
-          {IMAGE_BLOCK.label}
-          <span className="text-ink-tertiary text-xs">{IMAGE_BLOCK.hint}</span>
-        </button>
-      )}
+      <button
+        type="button"
+        role="menuitem"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          onDone();
+          onPickImage();
+        }}
+        className="text-ink-muted hover:bg-surface-4 hover:text-ink flex items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm"
+      >
+        {IMAGE_BLOCK.label}
+        <span className="text-ink-tertiary text-xs">{IMAGE_BLOCK.hint}</span>
+      </button>
     </div>
   );
 }
@@ -198,14 +195,14 @@ function BlockMenu({
  */
 function useImageInsertion(
   editor: Editor | null,
-  uploadImage?: (file: File) => Promise<{ url: string }>,
+  uploadImage: (file: File) => Promise<{ url: string }>,
 ) {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
 
   const insert = useCallback(
     async (files: File[]) => {
-      if (!editor || !uploadImage || files.length === 0) return;
+      if (!editor || files.length === 0) return;
       setNotice(null);
 
       for (const file of files) {
@@ -226,9 +223,7 @@ function useImageInsertion(
     [editor, uploadImage],
   );
 
-  // What the surface gates every image affordance on: no uploader, no button,
-  // no picker, and drop and paste fall back to ProseMirror's own handling.
-  return { insert, notice, setNotice, pending, enabled: Boolean(uploadImage) };
+  return { insert, notice, setNotice, pending };
 }
 
 /** The image files out of a drop or a paste, ignoring everything else in it. */
@@ -252,13 +247,12 @@ interface WritingSurfaceBase {
    * because the document an Image belongs to is the page's business — the
    * surface only knows where the caret is.
    *
-   * Optional, and absent for a Daylog Entry. An Image is filed under the
-   * *Article* it belongs to, in a bucket named for Articles, under the
-   * Draft-privacy trade ADR-0010 argues about Articles. None of that has been
-   * decided for an Entry, so rather than quietly reuse it, a surface with no
-   * uploader simply does not offer the affordance.
+   * Required: every surface that opens for writing has somewhere to put a
+   * picture — an Article into its bucket, a day into the Daylog's. It was
+   * briefly optional, while the Daylog had nowhere to put one; keeping the
+   * option now would be a branch no caller takes.
    */
-  uploadImage?: (file: File) => Promise<{ url: string }>;
+  uploadImage: (file: File) => Promise<{ url: string }>;
 }
 
 /**
@@ -294,7 +288,7 @@ export function WritingSurface(props: WritingSurfaceProps) {
       attributes: { class: "article-prose focus:outline-none" },
       handleDrop: (_view, event) => {
         const files = imageFilesIn((event as DragEvent).dataTransfer);
-        if (files.length === 0 || !insertImages.current) return false;
+        if (files.length === 0) return false;
         // Handled here, so ProseMirror does not also try to make sense of it.
         event.preventDefault();
         insertImages.current?.(files);
@@ -302,7 +296,7 @@ export function WritingSurface(props: WritingSurfaceProps) {
       },
       handlePaste: (_view, event) => {
         const files = imageFilesIn(event.clipboardData);
-        if (files.length === 0 || !insertImages.current) return false;
+        if (files.length === 0) return false;
         event.preventDefault();
         insertImages.current?.(files);
         return true;
@@ -324,9 +318,7 @@ export function WritingSurface(props: WritingSurfaceProps) {
   const picker = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    insertImages.current = insertion.enabled
-      ? (files) => void insertion.insert(files)
-      : null;
+    insertImages.current = (files) => void insertion.insert(files);
   }, [insertion]);
 
   if (!editor) return null;
@@ -343,8 +335,6 @@ export function WritingSurface(props: WritingSurfaceProps) {
               <MarkButton key={mark.title} editor={editor} mark={mark} />
             ))}
 
-            {insertion.enabled && (
-              <>
             <span className="bg-hairline mx-1 h-5 w-px" />
 
             <button
@@ -399,8 +389,6 @@ export function WritingSurface(props: WritingSurfaceProps) {
               <span className="text-ink-tertiary ml-2 text-xs">
                 Uploading{insertion.pending > 1 ? ` ${insertion.pending}` : ""}…
               </span>
-            )}
-              </>
             )}
           </div>
 
@@ -457,9 +445,7 @@ export function WritingSurface(props: WritingSurfaceProps) {
                 editor={editor}
                 onDone={close}
                 at={at}
-                onPickImage={
-                  insertion.enabled ? () => picker.current?.click() : null
-                }
+                onPickImage={() => picker.current?.click()}
               />
             )}
           </div>

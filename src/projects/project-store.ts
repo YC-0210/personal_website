@@ -14,6 +14,12 @@ import type {
   ProjectDraft,
   ProjectId,
 } from "./domain";
+import { refusalFor } from "@/articles/article-image";
+import {
+  UnconfiguredImageStore,
+  type ArticleImage,
+  type ImageStore,
+} from "@/articles/image-store";
 import type { ProjectRepository } from "./repository";
 
 export type ProjectStatus = "idle" | "loading" | "ready" | "error";
@@ -58,9 +64,16 @@ export class ProjectStore {
   private state: ProjectState = EMPTY_STATE;
   private readonly listeners = new Set<ProjectListener>();
 
+  /**
+   * The Image seam is the Articles module's, and is borrowed rather than
+   * lifted out. That follows the precedent `DaylogEntryBody` already sets in
+   * `domain.ts`: the type belongs to neither, it was written down in Articles
+   * first, and it moves out when a *third* writer appears — not the second.
+   */
   constructor(
     private readonly repository: ProjectRepository,
     private readonly auth: AuthProvider = new UnconfiguredAuthProvider(),
+    private readonly images: ImageStore = new UnconfiguredImageStore(),
   ) {}
 
   getState(): ProjectState {
@@ -253,6 +266,26 @@ export class ProjectStore {
    * times it is saved, and revising a published day does not withdraw it. That
    * invariant is ADR-0008's, and it is held here rather than in the editor.
    */
+  /**
+   * Put a picture in a day and say where to point at it.
+   *
+   * Filed under the *Entry* rather than the Project: a picture belongs to the
+   * day it records, and a Project can hold years of them. The document is not
+   * touched here — the editor holds the body and is the one that can put a
+   * picture at the caret — so this returns the URL and lets it. Autosave
+   * writes the result out like any other edit.
+   */
+  async uploadImage(entryId: DaylogEntryId, file: File): Promise<ArticleImage> {
+    let image: ArticleImage | null = null;
+    await this.write(async () => {
+      const refusal = refusalFor(file);
+      if (refusal) throw new Error(refusal);
+
+      image = await this.images.upload(entryId, file);
+    });
+    return image!;
+  }
+
   async editEntry(
     entryId: DaylogEntryId,
     draft: DaylogEntryDraft,
@@ -446,6 +479,7 @@ function byNewestDay(left: DaylogEntry, right: DaylogEntry): number {
 export function createProjectStore(
   repository: ProjectRepository,
   auth?: AuthProvider,
+  images?: ImageStore,
 ): ProjectStore {
-  return new ProjectStore(repository, auth);
+  return new ProjectStore(repository, auth, images);
 }

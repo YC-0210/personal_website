@@ -10,7 +10,7 @@ import {
   type ArticleStore,
 } from "./article-store";
 import { SupabaseArticleRepository } from "./supabase-article-repository";
-import { SupabaseImageStore } from "./supabase-image-store";
+import { SupabaseImageStore, ARTICLE_IMAGES } from "./supabase-image-store";
 
 let store: ArticleStore | null = null;
 
@@ -31,7 +31,9 @@ export function getArticleStore(): ArticleStore {
       auth,
       // Uploading meets a stale token as readily as saving does, so the bucket
       // is wrapped the same way the table is.
-      recoverStaleSession(new SupabaseImageStore(), () => auth.refreshSession()),
+      recoverStaleSession(new SupabaseImageStore(ARTICLE_IMAGES), () =>
+        auth.refreshSession(),
+      ),
     );
   }
   return store;

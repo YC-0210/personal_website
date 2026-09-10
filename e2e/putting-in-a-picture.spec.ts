@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { ONE_PIXEL_PNG, signInAsOwner, stubSupabase } from "./sphere";
 
 /**
- * Putting a picture in an Article.
+ * Putting a picture into writing — an Article, or a day of a Daylog.
  *
  * ADR-0005 puts the editor in the rendering layer: the store tests hold what
  * may be uploaded and where it is filed, and these hold the part only a browser
@@ -194,45 +194,70 @@ test.describe("A reader", () => {
 });
 
 /**
- * The gate that the Articles/Daylog merge created.
+ * A day takes a picture too.
  *
- * `WritingSurface` is shared, but an Image is filed under the *Article* it
- * belongs to, in a bucket named for Articles, under the Draft-privacy trade
- * ADR-0010 argues about Articles. None of that is decided for a Daylog Entry,
- * so the surface offers pictures only where there is somewhere to put them —
- * rather than showing a control that would fail, or quietly filing a day's
- * picture under an Article that does not exist.
+ * A day of work is often better shown than described — a screenshot of the
+ * thing that broke, a plot that came out wrong. The gesture is the one the
+ * Articles already have, and so is the surface; what differs is only where the
+ * bytes land, which is the assertion worth making here.
  */
-test.describe("A Daylog Entry, which has nowhere to put a picture", () => {
-  test("is not offered one", async ({ page }) => {
+test.describe("The Owner puts a picture in a day", () => {
+  test.beforeEach(async ({ page }) => {
+    await signInAsOwner(page);
+    await stubSupabase(page);
     test.skip(
       test.info().project.name !== "desktop",
       "Writing is desktop-only by decision — ADR-0009.",
     );
-
-    await signInAsOwner(page);
-    await stubSupabase(page);
-    await page.goto("/projects/proj1/log/day2/edit");
-
-    // The surface is open and writable — this is the Entry editor, not a
-    // refusal page — and only the picture controls are withheld.
-    await expect(page.locator('[contenteditable="true"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
-
-    await expect(page.getByRole("button", { name: "Image" })).toHaveCount(0);
-    await expect(page.locator('input[type="file"]')).toHaveCount(0);
   });
 
-  test("still offers one on an Article, so the gate is the uploader and not the merge", async ({
-    page,
-  }) => {
-    test.skip(test.info().project.name !== "desktop", "Desktop-only surface.");
+  test("picks one from the toolbar and it lands in the day", async ({ page }) => {
+    await page.goto("/projects/proj1/log/day2/edit");
 
-    await signInAsOwner(page);
-    await stubSupabase(page);
-    await page.goto("/articles/art1/edit");
+    const surface = page.locator('[contenteditable="true"]');
+    await surface.click();
 
-    await expect(page.getByRole("button", { name: "Image" })).toBeVisible();
-    await expect(page.locator('input[type="file"]')).toHaveCount(1);
+    await page.getByRole("button", { name: "Image" }).click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "screenshot.png",
+      mimeType: "image/png",
+      buffer: ONE_PIXEL_PNG,
+    });
+
+    const image = surface.locator("img");
+    await expect(image).toHaveCount(1);
+    // The day's own bucket, not the Articles'. Same rule, separate policy —
+    // that separation is the whole reason there are two.
+    await expect(image).toHaveAttribute(
+      "src",
+      /storage\/v1\/object\/public\/daylog-images\//,
+    );
+  });
+
+  test("takes one dropped onto the day", async ({ page }) => {
+    await page.goto("/projects/proj1/log/day2/edit");
+    const surface = page.locator('[contenteditable="true"]');
+    await surface.click();
+
+    await dispatchWithFile(page, "drop");
+
+    await expect(surface.locator("img")).toHaveCount(1);
+  });
+
+  test("refuses a file that is not an image, and says why", async ({ page }) => {
+    await page.goto("/projects/proj1/log/day2/edit");
+    const surface = page.locator('[contenteditable="true"]');
+    await surface.click();
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "notes.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4"),
+    });
+
+    await expect(
+      page.locator('p[role="alert"]', { hasText: "notes.pdf" }),
+    ).toContainText("PNG, JPEG, WebP, GIF or AVIF");
+    await expect(surface.locator("img")).toHaveCount(0);
   });
 });

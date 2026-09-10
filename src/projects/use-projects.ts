@@ -2,6 +2,11 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
+import {
+  SupabaseImageStore,
+  DAYLOG_IMAGES,
+} from "@/articles/supabase-image-store";
+import { recoverStaleSession } from "@/lib/session-recovery";
 import { SupabaseAuthProvider } from "@/sphere/supabase-auth-provider";
 import {
   createProjectStore,
@@ -12,12 +17,24 @@ import { SupabaseProjectRepository } from "./supabase-project-repository";
 
 let store: ProjectStore | null = null;
 
-/** The one Project store the page shares, created lazily in the browser. */
+/**
+ * The one Project store the page shares, created lazily in the browser.
+ *
+ * Both the table and the bucket are wrapped for stale-token recovery, the same
+ * way the Sphere's and the Articles' are. The Daylog needs it at least as much:
+ * a day gets written up hours after the tab was opened, and autosave is the
+ * first thing to discover the access token died while the laptop slept.
+ */
 export function getProjectStore(): ProjectStore {
-  store ??= createProjectStore(
-    new SupabaseProjectRepository(),
-    new SupabaseAuthProvider(),
-  );
+  if (!store) {
+    const auth = new SupabaseAuthProvider();
+    const refresh = () => auth.refreshSession();
+    store = createProjectStore(
+      recoverStaleSession(new SupabaseProjectRepository(), refresh),
+      auth,
+      recoverStaleSession(new SupabaseImageStore(DAYLOG_IMAGES), refresh),
+    );
+  }
   return store;
 }
 

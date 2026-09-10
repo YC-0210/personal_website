@@ -77,7 +77,8 @@ authenticated session, enforced by RLS. Connections are undirected — a unique
 index on the canonically-ordered endpoint pair keeps A-B and B-A from both
 existing — and cascade-delete when either endpoint Atom is removed.
 
-An Article's Images live in the `article-images` Storage bucket, under the same
-rule: public to read, Owner-only to write, capped at 5 MB and limited to the
-image types the editor can produce. ADR-0010 says why the bucket is public and
-what that costs a Draft.
+Images live in two Storage buckets under that same rule — `article-images` for
+an Article's, `daylog-images` for a day's: public to read, Owner-only to write,
+capped at 5 MB and limited to the image types the editor can produce. ADR-0010
+says why the buckets are public, what that costs unpublished writing, and why
+there are two of them rather than one.

@@ -88,11 +88,13 @@ is enough to say.
 _Avoid_: citation, tag, reference, backlink.
 
 **Image**:
-A picture the Owner uploads while writing, kept in the site's own bucket rather
-than hotlinked from someone else's server. Dropped, pasted or picked from the
-toolbar — all three are the same gesture. Carries the words that stand in for it
-when it cannot be seen. An Image in a Draft is stored under an unguessable path
-rather than kept private outright; ADR-0010 records that trade.
+A picture the Owner uploads while writing — into an Article, or into a day of a
+Daylog — kept in the site's own bucket rather than hotlinked from someone else's
+server. Dropped, pasted or picked from the toolbar; all three are the same
+gesture. Carries the words that stand in for it when it cannot be seen. Filed
+under the document it belongs to, each kind of writing in its own bucket. An
+Image inside unpublished writing is stored under an unguessable path rather than
+kept private outright; ADR-0010 records that trade.
 _Avoid_: photo, media, attachment, asset, figure.
 
 **Project**:

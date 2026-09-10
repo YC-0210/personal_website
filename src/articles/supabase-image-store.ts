@@ -5,8 +5,17 @@ import { imagePathFor } from "./article-image";
 import type { ArticleId } from "./domain";
 import type { ArticleImage, ImageStore } from "./image-store";
 
-/** The bucket the `20260903000000_article_images_bucket` migration creates. */
-const BUCKET = "article-images";
+/**
+ * The buckets the image migrations create, one per kind of writing.
+ *
+ * Two buckets rather than one, because a bucket is the unit an RLS policy is
+ * written against: an Article's pictures and a day's pictures answer to the
+ * same rule today, and keeping them apart is what lets one of those rules
+ * change later without rewriting the other. There is still only one *client* —
+ * this class — so nothing but the SQL is duplicated.
+ */
+export const ARTICLE_IMAGES = "article-images";
+export const DAYLOG_IMAGES = "daylog-images";
 
 /**
  * The real `ImageStore`, backed by Supabase Storage.
@@ -19,12 +28,15 @@ const BUCKET = "article-images";
 export class SupabaseImageStore implements ImageStore {
   private readonly resolveClient: () => SupabaseClient;
 
-  constructor(client?: SupabaseClient) {
+  constructor(
+    private readonly bucketName: string = ARTICLE_IMAGES,
+    client?: SupabaseClient,
+  ) {
     this.resolveClient = client ? () => client : getSupabaseClient;
   }
 
   async upload(articleId: ArticleId, file: File): Promise<ArticleImage> {
-    const bucket = this.resolveClient().storage.from(BUCKET);
+    const bucket = this.resolveClient().storage.from(this.bucketName);
     const path = imagePathFor(articleId, file);
 
     const { error } = await bucket.upload(path, file, {

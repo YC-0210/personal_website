@@ -195,6 +195,7 @@ function Workspace({ entry }: { entry: DaylogEntry }) {
           setBody(next);
           queueSave({ date, body: next });
         }}
+        uploadImage={(file) => store.uploadImage(entry.id, file)}
         back={<Back id={entry.projectId} />}
         heading={
           <>

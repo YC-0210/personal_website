@@ -1,7 +1,8 @@
-# ADR-0010: An Article's Images live in a public bucket, under unguessable paths
+# ADR-0010: Images live in a public bucket, under unguessable paths
 
 - **Status**: Accepted
 - **Date**: 2026-09-03
+- **Extended**: 2026-09-10 — the Daylog takes pictures on these same terms
 
 ## Context
 
@@ -76,3 +77,33 @@ only at the node type.
   Trash. Orphaned objects accumulate in the bucket. That is deliberate for now —
   a body can reference the same picture more than once and the Trash is
   reversible, so reference-counting is its own ticket rather than a line here.
+
+## Extension: the Daylog, 2026-09-10
+
+A day of work is often better shown than described — a screenshot of the thing
+that broke, a plot that came out wrong — so a Daylog Entry now takes pictures
+too. **Every argument above carries over unchanged**, and it carries over
+exactly rather than by analogy: an Entry has the same draft/published axis an
+Article has, so the same sentence is true of it. A picture inside an
+unpublished day is reachable by anyone holding its URL, even though the day
+itself is refused by RLS; what keeps it from being *found* is that the path is
+`<entry-id>/<random uuid>.<ext>` and nothing public ever emits it.
+
+**A second bucket, `daylog-images`, rather than reusing the first.** The rules
+are identical today. The reason to keep them apart is that a bucket is the unit
+an RLS policy is written against, so two buckets is what would let a day's
+pictures answer to a different rule later — a shorter retention, say, or a
+private one — without touching an Article's. The cost is real but small and
+confined: only the SQL is duplicated. One `SupabaseImageStore`, parameterised by
+bucket name, serves both, as do one size limit, one MIME list, one path rule and
+one renderer.
+
+Reusing `article-images` was the alternative, and it was rejected on the name
+alone: a day's screenshot filed in a bucket called "article images" is a lie in
+the schema that every later reader has to work around. Renaming both to
+something neutral was considered and rejected as the more expensive answer to
+the same problem — it moves existing objects for a cosmetic gain.
+
+The orphan consequence above now applies twice over: nothing deletes a picture
+when the Entry referencing it is deleted, exactly as nothing does for an
+Article. Still one ticket, now covering two buckets.
