@@ -478,3 +478,107 @@ describe("What an Atom's Dossier lists under WORKED ON", () => {
     expect(store.bondedProjects("atom-threejs")).toEqual([]);
   });
 });
+
+describe("Finding one Project by id", () => {
+  it("applies the rule `projects()` applies, which is what its callers assume", async () => {
+    const { repository, store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+    const entryId = await store.addEntry(projectId, {
+      date: "2026-08-20",
+      body: paragraphs("A day of work."),
+    });
+
+    // Nothing published: the Owner has a Project here and nobody else does.
+    expect((await storeOver(repository, false)).getProject(projectId)).toBeUndefined();
+
+    await store.publishEntry(entryId);
+    expect((await storeOver(repository, false)).getProject(projectId)?.name).toBe(
+      "Knowledge Sphere",
+    );
+
+    // And the Trash closes it again, for the Owner too — a page that names a
+    // Project from this is naming one that is supposed to be gone.
+    await store.deleteProject(projectId);
+    expect(store.getProject(projectId)).toBeUndefined();
+  });
+});
+
+describe("Opening one day of a Daylog on its own", () => {
+  it("hands a published day to anybody, and a draft day to nobody but the Owner", async () => {
+    const { repository, store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+    const published = await store.addEntry(projectId, {
+      date: "2026-08-20",
+      body: paragraphs("Force-directed angles, rank-driven radius."),
+    });
+    await store.publishEntry(published);
+    const draft = await store.addEntry(projectId, {
+      date: "2026-08-27",
+      body: paragraphs("Half a thought, not finished."),
+    });
+
+    const visitor = await storeOver(repository, false);
+
+    expect(visitor.getEntry(published)?.id).toBe(published);
+    // A day has a URL of its own now, so the read rule has to hold at that URL
+    // too — otherwise the Ledger hides a draft the address bar hands over.
+    expect(visitor.getEntry(draft)).toBeUndefined();
+    expect(store.getEntry(draft)?.id).toBe(draft);
+  });
+
+  it("refuses a day whose Project has been trashed, published or not", async () => {
+    const { repository, store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+    const entryId = await store.addEntry(projectId, {
+      date: "2026-08-20",
+      body: paragraphs("A day of work that was later put away."),
+    });
+    await store.publishEntry(entryId);
+
+    await store.deleteProject(projectId);
+
+    // Trashing a Project takes its Daylog out of the site with it. `entries()`
+    // is always asked about a Project the caller already found, so it never had
+    // to check; a day's own URL names no Project, so this one does.
+    expect(store.getEntry(entryId)).toBeUndefined();
+    expect((await storeOver(repository, false)).getEntry(entryId)).toBeUndefined();
+  });
+});
+
+describe("Moving between the days of a Daylog", () => {
+  it("hands back the day before and the day after, in the log's own order", async () => {
+    const { store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+
+    const monday = await store.addEntry(projectId, { date: "2026-08-18", body: paragraphs("Monday.") });
+    const wednesday = await store.addEntry(projectId, { date: "2026-08-20", body: paragraphs("Wednesday.") });
+    const friday = await store.addEntry(projectId, { date: "2026-08-22", body: paragraphs("Friday.") });
+    for (const id of [monday, wednesday, friday]) await store.publishEntry(id);
+
+    expect(store.neighbouringDays(wednesday)).toEqual({
+      earlier: expect.objectContaining({ id: monday }),
+      later: expect.objectContaining({ id: friday }),
+    });
+    // The ends of the log are ends, not wrap-arounds.
+    expect(store.neighbouringDays(friday).later).toBeNull();
+    expect(store.neighbouringDays(monday).earlier).toBeNull();
+  });
+
+  it("steps a Visitor straight over the Owner's drafts", async () => {
+    const { repository, store } = await ownerStore();
+    const projectId = await store.addProject({ name: "Knowledge Sphere", description: "" });
+
+    const monday = await store.addEntry(projectId, { date: "2026-08-18", body: paragraphs("Monday.") });
+    // Wednesday is written but not published, so for a Visitor it is not a day
+    // at all: offering it as the next one would be a link to a refusal.
+    await store.addEntry(projectId, { date: "2026-08-20", body: paragraphs("Wednesday, unfinished.") });
+    const friday = await store.addEntry(projectId, { date: "2026-08-22", body: paragraphs("Friday.") });
+    await store.publishEntry(monday);
+    await store.publishEntry(friday);
+
+    const visitor = await storeOver(repository, false);
+
+    expect(visitor.neighbouringDays(monday).later?.id).toBe(friday);
+    expect(visitor.neighbouringDays(friday).earlier?.id).toBe(monday);
+  });
+});

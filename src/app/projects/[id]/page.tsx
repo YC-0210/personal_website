@@ -328,6 +328,7 @@ export default function ProjectPage() {
       </p>
 
       <DaylogLedger
+        projectId={project.id}
         entries={entries}
         controlsFor={
           isEditMode
