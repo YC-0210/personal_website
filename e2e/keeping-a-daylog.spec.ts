@@ -40,7 +40,7 @@ test.describe("A Visitor at the Projects", () => {
   test("reads the Ledger with the draft days left out of it", async ({ page }) => {
     await page.goto("/projects/proj1");
 
-    await expect(page.getByText("DAYLOG · 1")).toBeVisible();
+    await expect(page.getByText("DAYLOG · 2")).toBeVisible();
     await expect(page.getByText("20 Aug", { exact: true })).toBeVisible();
     await expect(page.getByText("Half a thought")).toHaveCount(0);
   });
@@ -76,21 +76,76 @@ test.describe("The Owner at the Projects", () => {
   test("reads their own draft days in the Ledger", async ({ page }) => {
     await page.goto("/projects/proj1");
 
-    await expect(page.getByText("DAYLOG · 2")).toBeVisible();
+    await expect(page.getByText("DAYLOG · 3")).toBeVisible();
     await expect(page.getByText("27 Aug", { exact: true })).toBeVisible();
   });
 
-  test("can open a clamped day in place", async ({ page }) => {
+  test("can reach their own draft day from the Ledger and keep writing it", async ({ page }) => {
     await page.goto("/projects/proj1");
 
-    const opener = page.getByRole("button", { name: "Open" }).first();
-    await expect(opener).toBeVisible();
-    await opener.click();
+    await page.getByRole("link", { name: /27 August 2026/ }).click();
 
-    // The cost of the Ledger, working as intended: the rest of the day is
-    // behind the clamp until it is asked for.
+    await expect(page).toHaveURL(/\/projects\/proj1\/log\/day2$/);
+    await expect(page.getByText("Draft")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Keep writing/ })).toBeVisible();
+  });
+});
+
+/**
+ * ADR-0012: a day is read on its own page, the way an Article is.
+ *
+ * The Ledger stays what it was — a scannable column of dates — but the thing
+ * behind a row is now an address rather than a disclosure toggle, so a day can
+ * be linked to, come back to, and read without the rest of the log shifting
+ * under it.
+ */
+test.describe("A Visitor reading one day", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubSupabase(page);
+  });
+
+  test("opens a day from the Ledger and gets the whole of it, at its own URL", async ({ page }) => {
+    await page.goto("/projects/proj1");
+
+    // The row itself is the way in — not a small control at the end of it.
+    await page.getByRole("link", { name: /20 August 2026/ }).click();
+
+    await expect(page).toHaveURL(/\/projects\/proj1\/log\/day1$/);
+    // The day is the heading, exactly as it is in the editor and the glossary.
+    await expect(
+      page.getByRole("heading", { level: 1, name: "20 August 2026" }),
+    ).toBeVisible();
+    // Everything the Ledger clamped away is simply here now.
     await expect(page.getByText("read as a spiral")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Close" }).first()).toBeVisible();
+  });
+
+  test("reads the Project through, a day at a time, without going back to the Ledger", async ({ page }) => {
+    await page.goto("/projects/proj1/log/day1");
+
+    await page.getByRole("link", { name: /18 August 2026/ }).click();
+
+    await expect(page).toHaveURL(/\/projects\/proj1\/log\/day0$/);
+    await expect(page.getByText("picked one")).toBeVisible();
+    // The oldest day is an end, not a wrap-around, so there is nothing earlier
+    // to offer from here.
+    await expect(page.getByRole("link", { name: /Earlier/ })).toHaveCount(0);
+  });
+
+  test("is never offered the Owner's draft day as the one after this", async ({ page }) => {
+    await page.goto("/projects/proj1/log/day1");
+
+    // 27 August is a draft, so for a Visitor it is not the next day — it is not
+    // a day at all, and a link to it would be a link to a refusal.
+    await expect(page.getByRole("link", { name: /27 August 2026/ })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Later/ })).toHaveCount(0);
+  });
+
+  test("is told nothing by the draft day's own URL", async ({ page }) => {
+    await page.goto("/projects/proj1/log/day2");
+
+    await expect(page.getByText("There is no day here")).toBeVisible();
+    // Not "you may not read this": saying that would confirm it exists.
+    await expect(page.getByText("Half a thought")).toHaveCount(0);
   });
 });
 

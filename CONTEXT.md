@@ -114,7 +114,9 @@ _Avoid_: journal, changelog, diary, timeline.
 One day of a Daylog: a date and a body, and no title — the date is the heading.
 Dated by the Owner rather than by when it was typed, so a Monday written up on
 Tuesday is still filed under Monday. Two may share a date. Written as a draft
-and published deliberately, exactly as an Article is.
+and published deliberately, exactly as an Article is — and read the same way, on
+a page of its own, with the day standing where an Article's title stands. The
+Ledger's two-line row is a way in, not the day (ADR-0012).
 _Avoid_: log, post, note, standup.
 
 **Trash**:

@@ -84,6 +84,16 @@ export const PROJECTS = [
 
 export const DAYLOG_ENTRIES = [
   {
+    // An earlier published day, so a Visitor has somewhere to go from day1 —
+    // reading a Project through is the point of giving a day its own page.
+    id: "day0",
+    project_id: "proj1",
+    entry_date: "2026-08-18",
+    body: doc("Read the force-directed layout papers and picked one."),
+    created_at: "2026-08-18T09:00:00Z",
+    published_at: "2026-08-18T18:00:00Z",
+  },
+  {
     id: "day1",
     project_id: "proj1",
     entry_date: "2026-08-20",

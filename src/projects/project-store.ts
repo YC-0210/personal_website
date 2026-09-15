@@ -136,9 +136,17 @@ export class ProjectStore {
       );
   }
 
-  /** One Project, by id, under exactly the rule `projects()` uses. */
+  /**
+   * One Project, by id, under exactly the rule `projects()` uses — trashed or
+   * with nothing published in it, it is not there to be found.
+   *
+   * It always said so; it did not always do so, and the gap went unnoticed
+   * while every caller happened to be a test. A day's page names the Project it
+   * belongs to (ADR-0012), so the rule now has to hold here as well.
+   */
   getProject(projectId: ProjectId): Project | undefined {
-    return this.state.projects.find((project) => project.id === projectId);
+    const project = this.state.projects.find((each) => each.id === projectId);
+    return project && this.canRead(project) ? project : undefined;
   }
 
   /**
@@ -170,6 +178,62 @@ export class ProjectStore {
           (entry.publishedAt !== null || this.readsDrafts()),
       )
       .sort(byNewestDay);
+  }
+
+  /**
+   * One day of a Daylog, to read on its own, under exactly the rule
+   * `entries()` uses: a Visitor is handed a published day and refused a draft,
+   * and the Owner is handed either.
+   *
+   * A day has an address of its own now (ADR-0012), which means the read rule
+   * has to hold against an id typed into the bar rather than only against the
+   * rows the Ledger chose to render.
+   */
+  getEntry(entryId: DaylogEntryId): DaylogEntry | undefined {
+    const entry = this.state.entries.find((each) => each.id === entryId);
+    if (!entry) return undefined;
+    if (entry.publishedAt === null && !this.readsDrafts()) return undefined;
+
+    // And the Project it belongs to has to still be readable. `entries()` never
+    // had to ask — it is only ever called with a Project the caller has already
+    // found — but a day's own URL names no Project, so the Trash has to be
+    // checked from this end or a trashed Daylog stays open at its old links.
+    const project = this.state.projects.find(
+      (each) => each.id === entry.projectId,
+    );
+    if (!project || !this.canRead(project)) return undefined;
+
+    return entry;
+  }
+
+  /**
+   * The days either side of this one in its own Daylog — what the day's page
+   * offers as its way on, so a Visitor can read a Project through without
+   * going back to the Ledger between every day.
+   *
+   * Sided by the date rather than by position in the list: `entries()` is
+   * newest-first, so the *earlier* day is the one after it and the *later* day
+   * the one before, and naming them that way keeps the page from having to
+   * remember which end of the array it is holding.
+   *
+   * Read through `entries()`, so a Visitor is never offered a link to a day
+   * they would then be refused.
+   */
+  neighbouringDays(entryId: DaylogEntryId): {
+    earlier: DaylogEntry | null;
+    later: DaylogEntry | null;
+  } {
+    const entry = this.getEntry(entryId);
+    if (!entry) return { earlier: null, later: null };
+
+    const log = this.entries(entry.projectId);
+    const here = log.findIndex((each) => each.id === entryId);
+    // Both ends fall out of the indexing: `log[-1]` is `undefined`, the same
+    // as running off the far end, so neither end wraps round to the other.
+    return {
+      earlier: log[here + 1] ?? null,
+      later: log[here - 1] ?? null,
+    };
   }
 
   /**
